@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jimp": "^1.6.0",
+    "mathjs": "^15.1.0",
+    "opencv.js": "^1.2.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
