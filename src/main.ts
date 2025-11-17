@@ -1,4 +1,7 @@
-import { Jimp, intToRGBA } from "jimp";
+import * as JimpImport from "jimp";
+const { Jimp, intToRGBA } = JimpImport;
+import { erode } from "./erode.ts";
+import { dilate } from "./dilate.ts";
 
 async function main() {
     const filePath = "src/image.png";
@@ -11,11 +14,12 @@ async function main() {
     const { r, g, b, a } = intToRGBA(color);
     console.log("左上ピクセル:", { r, g, b, a });
 
-    // グレースケール変換
-    const gray = image.clone().greyscale();
-    gray.write("./output-gray.jpg", (err: any) => {
+    const dilated = dilate(image);
+    const eroded = erode(dilated);
+
+    eroded.write("./output.png", (err: any) => {
         if (err) console.error(err);
-        else console.log("🖼️ グレースケール画像を出力しました。");
+        else console.log("収縮後の画像を出力しました。");
     });
 }
 
