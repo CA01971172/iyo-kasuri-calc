@@ -1,5 +1,10 @@
 import * as JimpImport from "jimp";
-const { Jimp, intToRGBA, rgbaToInt } = JimpImport;
+const { intToRGBA, rgbaToInt } = JimpImport;
+
+// 輝度を計算
+function luminance(r: number, g: number, b: number) {
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+}
 
 // 3x3 の隣接オフセット
 const offsets = [
@@ -16,7 +21,7 @@ export function erode(src: any): any {
 
     for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-            let minR = 255, minG = 255, minB = 255;
+            let minY = 255;
 
             for (const [dx, dy] of offsets) {
                 const nx = x + dx;
@@ -26,12 +31,11 @@ export function erode(src: any): any {
                 const c = src.getPixelColor(nx, ny);
                 const { r, g, b } = intToRGBA(c);
 
-                if (r < minR) minR = r;
-                if (g < minG) minG = g;
-                if (b < minB) minB = b;
+                const Y = luminance(r, g, b);
+                if (Y < minY) minY = Y;
             }
 
-            out.setPixelColor(rgbaToInt(minR, minG, minB, 255), x, y);
+            out.setPixelColor(rgbaToInt(minY, minY, minY, 255), x, y);
         }
     }
     return out;

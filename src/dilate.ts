@@ -1,5 +1,10 @@
 import * as JimpImport from "jimp";
-const { Jimp, intToRGBA, rgbaToInt } = JimpImport;
+const { intToRGBA, rgbaToInt } = JimpImport;
+
+// 輝度を計算
+function luminance(r: number, g: number, b: number) {
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+}
 
 // 3x3 の隣接オフセット
 const offsets = [
@@ -16,7 +21,7 @@ export function dilate(src: any): any {
 
     for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-            let maxR = 0, maxG = 0, maxB = 0;
+            let maxY = 0;
 
             for (const [dx, dy] of offsets) {
                 const nx = x + dx;
@@ -26,12 +31,11 @@ export function dilate(src: any): any {
                 const c = src.getPixelColor(nx, ny);
                 const { r, g, b } = intToRGBA(c);
 
-                if (r > maxR) maxR = r;
-                if (g > maxG) maxG = g;
-                if (b > maxB) maxB = b;
+                const Y = luminance(r, g, b);
+                if (Y > maxY) maxY = Y;
             }
 
-            out.setPixelColor(rgbaToInt(maxR, maxG, maxB, 255), x, y);
+            out.setPixelColor(rgbaToInt(maxY, maxY, maxY, 255), x, y);
         }
     }
     return out;
