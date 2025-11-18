@@ -14,10 +14,11 @@ async function main() {
     const { r, g, b, a } = intToRGBA(color);
     console.log("左上ピクセル:", { r, g, b, a });
 
-    const dilated = dilate(image);
-    const eroded = erode(dilated);
+    // 白背景黒絵柄の画像に対して画像処理を逆に実行
+    const dilated = dilate(image); // 白を膨張(dilation)させてノイズ(下書き等)を除去
+    const closed = erode(dilated);　// closing(dilate->erode)で絵柄を元に戻す
 
-    eroded.write("./output.png", (err: any) => {
+    closed.write("./images/output.png", (err: any) => {
         if (err) console.error(err);
         else console.log("収縮後の画像を出力しました。");
     });
