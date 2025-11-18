@@ -2,6 +2,7 @@ import * as JimpImport from "jimp";
 const { Jimp, intToRGBA } = JimpImport;
 import { erode } from "./erode.ts";
 import { dilate } from "./dilate.ts";
+import { autoWhiteNormalize } from "./normalizeWhite.ts";
 
 async function main() {
     const filePath = "src/image.png";
@@ -17,8 +18,9 @@ async function main() {
     // 白背景黒絵柄の画像に対して画像処理を逆に実行
     const dilated = dilate(image); // 白を膨張(dilation)させてノイズ(下書き等)を除去
     const closed = erode(dilated);　// closing(dilate->erode)で絵柄を元に戻す
+    const whited = autoWhiteNormalize(closed); // 白を正規化
 
-    closed.write("./images/output.png", (err: any) => {
+    whited.write("./images/output.png", (err: any) => {
         if (err) console.error(err);
         else console.log("収縮後の画像を出力しました。");
     });
