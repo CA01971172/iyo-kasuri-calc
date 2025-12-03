@@ -17,7 +17,7 @@ async function main() {
 
     // 白背景黒絵柄の画像に対して画像処理を逆に実行
     const dilated = dilate(image); // 白を膨張(dilation)させてノイズ(下書き等)を除去
-    const closed = erode(dilated);　// closing(dilate->erode)で絵柄を元に戻す
+    const closed = erode(dilated); // closing(dilate->erode)で絵柄を元に戻す
     const whited = autoWhiteNormalize(closed); // 白を正規化
 
     whited.write("./images/output.png", (err: any) => {
