@@ -1,5 +1,5 @@
 import { Stepper, Step, StepLabel, Box, Typography } from '@mui/material';
-import { useKasuriContext } from '../contexts/DataProvider';
+import { useKasuriContext } from '../contexts/KasuriProvider';
 
 const steps = ['写真を撮る', '基準線を合わせる', '図面を測る'];
 

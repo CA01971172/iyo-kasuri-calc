@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { Button, Box, Typography } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
-import { useKasuriContext } from './contexts/DataProvider';
+import { useKasuriContext } from './contexts/KasuriProvider';
 
 export default function PhotoUploader() {
     const fileInputRef = useRef<HTMLInputElement>(null);
