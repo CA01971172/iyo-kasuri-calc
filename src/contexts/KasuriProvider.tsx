@@ -23,8 +23,6 @@ type KasuriContextType = {
     setStep: (step: number) => void;
     image: string | null;
     setImage: (image: string | null) => void;
-    calibration: Calibration;
-    setCalibration: (calibration: Calibration) => void;
     points: Point[];
     setPoints: (points: Point[]) => void;
     config: KasuriConfig;
@@ -37,14 +35,11 @@ const DataContext = createContext<KasuriContextType>({} as KasuriContextType);
 export function KasuriProvider({ children }: { children: ReactNode }) {
     const [step, setStep] = useState(0);
     const [image, setImage] = useState<string | null>(null);
-    const [points, setPoints] = useState<Point[]>([]);
+    const [points, setPoints] = useState<Point[]>([
+        { x: 0.2, y: 0.2 }, { x: 0.8, y: 0.2 },
+        { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.8 }
+    ]);
     const isPortrait = useMediaQuery('(orientation: portrait)');
-    
-    // キャリブレーションの初期値（画像が表示された時に中央付近に出るようにするとUXが良い）
-    const [calibration, setCalibration] = useState<Calibration>({
-        line0: { start: { x: 100, y: 100 }, end: { x: 300, y: 100 } },
-        lineMax: { start: { x: 100, y: 300 }, end: { x: 300, y: 300 } },
-    });
 
     const [config, setConfig] = useState<KasuriConfig>({ 
         mmPerYuki: 1500 // 1往あたりの長さ
@@ -53,8 +48,6 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
     const value: KasuriContextType = {
         image,
         setImage,
-        calibration,
-        setCalibration,
         points,
         setPoints,
         config,

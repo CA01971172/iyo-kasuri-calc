@@ -1,21 +1,17 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Box, Button, Typography, useMediaQuery } from '@mui/material';
 import { useKasuriContext } from '../contexts/KasuriProvider';
 
-export default function Calibration() {
+export default function CalibrationStep() {
     const isPortrait = useMediaQuery('(orientation: portrait)');
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const { image, setStep } = useKasuriContext();
+    const { image, setStep, points, setPoints } = useKasuriContext();
+    const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
-    // 線の位置（画像に対する比率 0〜1 で持つと、画面サイズが変わってもズレません）
-    const [lineA, setLineA] = useState(0.2); // 0往用（上）
-    const [lineB, setLineB] = useState(0.8); // 最大往用（下）
-
-    // 初期描画：画像をCanvasにセット
-    useEffect(() => {
-        if (!image) return;
+    // 描画処理
+    const draw = useCallback(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || !image) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
@@ -23,104 +19,130 @@ export default function Calibration() {
         img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
-            draw(ctx, img);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. 背景画像
+            ctx.drawImage(img, 0, 0);
+
+            // 2. 4点を結ぶ枠線
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = canvas.width * 0.005;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
+            points.forEach((p, i) => {
+                ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
+            });
+            ctx.closePath();
+            ctx.stroke();
+
+            // 3. 各点の「つまみ（ハンドル）」
+            points.forEach((p) => {
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                // お祖母様が視認しやすいよう、少し大きめの円にする
+                ctx.arc(p.x * canvas.width, p.y * canvas.height, canvas.width * 0.015, 0, Math.PI * 2);
+                ctx.fill();
+            });
         };
         img.src = image;
-    }, [image, lineA, lineB]);
+    }, [image, points]);
 
-    // 描画ロジック
-    const draw = (ctx: CanvasRenderingContext2D, img: HTMLImageElement) => {
-        const { width, height } = ctx.canvas;
-        ctx.clearRect(0, 0, width, height);
-        
-        // 1. 背景の図面を描画
-        ctx.drawImage(img, 0, 0);
+    useEffect(() => {
+        draw();
+    }, [draw]);
 
-        // 2. ガイド線のスタイル設定
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = Math.max(width, height) * 0.005; // 画像サイズに応じて線の太さを調整
-        
-        // 線A（0往）の描画
-        ctx.beginPath();
-        ctx.moveTo(0, height * lineA);
-        ctx.lineTo(width, height * lineA);
-        ctx.stroke();
+    // 座標取得用
+    const getPos = (e: any) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        // イベントがマウスかタッチか判定
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: (clientX - rect.left) * scaleX / canvas.width,
+            y: (clientY - rect.top) * scaleY / canvas.height
+        };
+    };
 
-        // 線B（最大往）の描画
-        ctx.beginPath();
-        ctx.moveTo(0, height * lineB);
-        ctx.lineTo(width, height * lineB);
-        ctx.stroke();
+    const handleStart = (e: any) => {
+        const pos = getPos(e);
+        // 一番近い点を探す
+        let closestIdx = -1;
+        let minDist = 0.05; // 判定距離（比率）
+        points.forEach((p, i) => {
+            const d = Math.sqrt((p.x - pos.x) ** 2 + (p.y - pos.y) ** 2);
+            if (d < minDist) {
+                minDist = d;
+                closestIdx = i;
+            }
+        });
+        if (closestIdx !== -1) setDraggingIdx(closestIdx);
+    };
+
+    const handleMove = (e: any) => {
+        if (draggingIdx === null) return;
+        const pos = getPos(e);
+        const newPoints = [...points];
+        newPoints[draggingIdx] = { 
+            x: Math.max(0, Math.min(1, pos.x)), 
+            y: Math.max(0, Math.min(1, pos.y)) 
+        };
+        setPoints(newPoints);
     };
 
     return (
         <Box sx={{ 
             display: 'flex', 
             flexDirection: isPortrait ? 'column' : 'row', 
-            height: '100%', 
-            p: 2, 
-            gap: 2,
-            boxSizing: 'border-box' 
+            height: '100%', p: 2, gap: 2, boxSizing: 'border-box' 
         }}>
-            {/* 左/上：メイン操作エリア */}
-            <Box sx={{ 
-                flexGrow: 1, 
-                display: 'flex', 
-                flexDirection: 'column',
-                minHeight: 0 
-            }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1, textAlign: 'center' }}>
-                    赤い線を、図面の上下の端に合わせてください
+            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 0, minWidth: 0 }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center' }}>
+                    図面の四隅に赤い点を合わせてください
                 </Typography>
                 
-                <Box sx={{ flexGrow: 1, position: 'relative', minHeight: 0, display: 'flex', justifyContent: 'center' }}>
-                    {/* ここにCanvasを配置 */}
+                <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <canvas
                         ref={canvasRef}
+                        onMouseDown={handleStart}
+                        onMouseMove={handleMove}
+                        onMouseUp={() => setDraggingIdx(null)}
+                        onTouchStart={handleStart}
+                        onTouchMove={handleMove}
+                        onTouchEnd={() => setDraggingIdx(null)}
                         style={{
                             maxWidth: '100%',
                             maxHeight: '100%',
                             objectFit: 'contain',
-                            touchAction: 'none', // ブラウザのスクロールを止めてドラッグに集中
-                            cursor: 'ns-resize'
+                            touchAction: 'none',
+                            cursor: draggingIdx !== null ? 'grabbing' : 'crosshair',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
                         }}
                     />
                 </Box>
             </Box>
 
-            {/* 右/下：操作パネル */}
+            {/* 操作ボタン：PhotoUploaderとサイズ・トーンを統一 */}
             <Box sx={{ 
-                display: 'flex', 
-                // 横持ちの時はボタンを縦に並べてサイドに固定
-                flexDirection: 'column', 
-                justifyContent: 'center',
-                gap: 2,
-                width: isPortrait ? '100%' : '240px',
-                pb: isPortrait ? 2 : 0,
-                flexShrink: 0
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', 
+                gap: 2, width: isPortrait ? '100%' : '240px', flexShrink: 0 
             }}>
                 <Button 
-                    variant="contained" 
-                    size="large" 
-                    fullWidth 
+                    fullWidth variant="contained" color="primary"
                     onClick={() => setStep(2)}
-                    sx={{
-                        fontSize: '1.5rem', 
-                        py: isPortrait ? 2 : 4,
-                        borderRadius: '12px'
-                    }}
+                    sx={{ fontSize: '1.5rem', py: isPortrait ? 2 : 4, borderRadius: '12px' }}
                 >
-                    決定
+                    次へ進む
                 </Button>
                 <Button 
-                    variant="outlined" 
+                    fullWidth variant="outlined" 
                     onClick={() => setStep(0)}
-                    sx={{ 
-                        fontSize: '1.1rem', 
-                        py: 1,
-                    }}
+                    sx={{ fontSize: '1.1rem', py: 1 }}
                 >
-                    前に戻る<br/>(写真を撮り直す)
+                    写真を撮り直す
                 </Button>
             </Box>
         </Box>
