@@ -25,27 +25,45 @@ export default function CalibrationStep() {
             ctx.drawImage(img, 0, 0);
 
             // 2. 4点を結ぶ枠線
-            ctx.strokeStyle = '#ff0000';
+            ctx.strokeStyle = draggingIdx !== null ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 0, 0, 0.8)';
             ctx.lineWidth = canvas.width * 0.005;
             ctx.beginPath();
             ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
-            points.forEach((p, i) => {
+            points.forEach((p) => {
                 ctx.lineTo(p.x * canvas.width, p.y * canvas.height);
             });
             ctx.closePath();
             ctx.stroke();
 
             // 3. 各点の「つまみ（ハンドル）」
-            points.forEach((p) => {
-                ctx.fillStyle = '#ff0000';
+            points.forEach((p, i) => {
+                const px = p.x * canvas.width;
+                const py = p.y * canvas.height;
+                const isDragging = i === draggingIdx;
+
+                // 1. 【大きい透明な点】指を受け止めるエリア
                 ctx.beginPath();
-                // お祖母様が視認しやすいよう、少し大きめの円にする
-                ctx.arc(p.x * canvas.width, p.y * canvas.height, canvas.width * 0.015, 0, Math.PI * 2);
+                ctx.arc(px, py, canvas.width * 0.02, 0, Math.PI * 2);
+                ctx.fillStyle = isDragging ? 'rgba(255, 255, 0, 0.3)' : 'rgba(255, 0, 0, 0.3)';
                 ctx.fill();
+
+                // 2. 【小さい不透明な点】角に合わせるための精密な中心
+                ctx.beginPath();
+                ctx.arc(px, py, canvas.width * 0.005, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff0000'; // ここはパキッと不透明
+                ctx.fill();
+                
+                // 3. 【おまけ】白い縁取り
+                // 背景が黒い影（image_9150d9.pngの端など）でも中心が見えるように、
+                // 小さい点の周りに細く白い線を引くと、どんな画像でも埋もれません
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
             });
+            
         };
         img.src = image;
-    }, [image, points]);
+    }, [image, points, draggingIdx]);
 
     useEffect(() => {
         draw();
@@ -142,7 +160,7 @@ export default function CalibrationStep() {
                     onClick={() => setStep(0)}
                     sx={{ fontSize: '1.1rem', py: 1 }}
                 >
-                    写真を撮り直す
+                    前に戻る<br/>(写真を撮り直す)
                 </Button>
             </Box>
         </Box>
