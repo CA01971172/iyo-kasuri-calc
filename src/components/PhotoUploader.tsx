@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { Button, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
@@ -10,7 +10,27 @@ export default function PhotoUploader() {
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const { image, setImage, setStep } = useKasuriContext();
+    const { image, setImage, step, setStep } = useKasuriContext();
+
+    // 初期描画：既に画像がある場合にCanvasにセット
+    useEffect(() => {
+        // 画像がない、またはCanvasの準備ができていない場合は何もしない
+        if (!image) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const img = new Image();
+        img.onload = () => {
+            // Contextにある画像の解像度に合わせてCanvasをリサイズして描画
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = image; // 既に保持している dataURL を流し込む
+
+    }, [image, step]); // imageが変わった時や、ステップが戻ってきた時に発火
 
     function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
@@ -151,7 +171,7 @@ export default function PhotoUploader() {
                             py: 1,
                         }}
                     >
-                        撮り直す
+                        写真を撮り直す
                     </Button>
                 </Box>
             )}

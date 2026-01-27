@@ -2,8 +2,12 @@ import './App.css'
 import { Box } from '@mui/material'
 import { AppStepper } from './components/AppStepper'
 import PhotoUploader from './components/PhotoUploader'
+import { useKasuriContext } from './contexts/KasuriProvider';
+import Calibration from './components/Calibration';
 
 export default function App() {
+    const { step } = useKasuriContext();
+
     return (
         <Box sx={{
             display: 'flex',
@@ -30,7 +34,8 @@ export default function App() {
                 bgcolor: '#fafafa', // 少し色を変えて境界を分かりやすく
                 overflow: 'auto'    // 中身が溢れたらここだけスクロール
             }}>
-                <PhotoUploader />
+
+                {[<PhotoUploader/>, <Calibration/>].at(step)}
             </Box>
         </Box>
     )
