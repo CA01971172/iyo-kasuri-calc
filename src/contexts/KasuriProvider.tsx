@@ -1,6 +1,7 @@
 // src/contexts/KasuriContext.tsx
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useMediaQuery } from '@mui/material';
 
 // 基本的な座標の型
 export type Point = { x: number; y: number; };
@@ -28,6 +29,7 @@ type KasuriContextType = {
     setPoints: (points: Point[]) => void;
     config: KasuriConfig;
     setConfig: (config: KasuriConfig) => void;
+    isPortrait: boolean;
 }
 
 const DataContext = createContext<KasuriContextType>({} as KasuriContextType);
@@ -36,6 +38,7 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
     const [step, setStep] = useState(0);
     const [image, setImage] = useState<string | null>(null);
     const [points, setPoints] = useState<Point[]>([]);
+    const isPortrait = useMediaQuery('(orientation: portrait)');
     
     // キャリブレーションの初期値（画像が表示された時に中央付近に出るようにするとUXが良い）
     const [calibration, setCalibration] = useState<Calibration>({
@@ -58,6 +61,7 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
         setConfig,
         step,
         setStep,
+        isPortrait,
     };
 
     return (

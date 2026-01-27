@@ -1,7 +1,7 @@
 import './App.css'
 import { Box } from '@mui/material'
 import { AppStepper } from './components/AppStepper'
-import PhotoUploader from './PhotoUploader'
+import PhotoUploader from './components/PhotoUploader'
 
 export default function App() {
     return (
