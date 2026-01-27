@@ -51,6 +51,7 @@ export default function PhotoUploader() {
             height: '100%', 
             p: 2,
             gap: 2,
+            boxSizing: 'border-box',
             transition: 'all 0.3s ease'
         }}>
             {/* メインコンテンツエリア：写真または撮影ボタン */}
@@ -97,7 +98,10 @@ export default function PhotoUploader() {
                         </Button>
                     </Box>
                 ) : (
-                    <Box sx={{ flexGrow: 1 }}>
+                    <Box sx={{
+                        flexGrow: 1,
+                        minHeight: 0
+                    }}>
                         <canvas
                             ref={canvasRef}
                             style={{
