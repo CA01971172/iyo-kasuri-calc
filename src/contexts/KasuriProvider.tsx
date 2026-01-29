@@ -2,9 +2,7 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useMediaQuery } from '@mui/material';
-
-// 基本的な座標の型
-export type Point = { x: number; y: number; };
+import type { Point } from '../utils/homography';
 
 // キャリブレーションの型
 export type Calibration = {
