@@ -14,7 +14,8 @@ export type Calibration = {
 
 // 設定データの型
 export type KasuriConfig = {
-    mmPerYuki: number;
+    totalYuki: number;    // 総行数
+    totalHane: number;    // 総羽数
 };
 
 // Contextが保持する全データの型
@@ -41,8 +42,9 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
     ]);
     const isPortrait = useMediaQuery('(orientation: portrait)');
 
-    const [config, setConfig] = useState<KasuriConfig>({ 
-        mmPerYuki: 1500 // 1往あたりの長さ
+    const [config, setConfig] = useState<KasuriConfig>({
+        totalYuki: 32,       // 32往
+        totalHane: 80,       // 80羽（図面の横幅が80ユニット分）
     });
 
     const value: KasuriContextType = {

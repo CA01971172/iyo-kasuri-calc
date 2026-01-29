@@ -4,6 +4,7 @@ import { AppStepper } from './components/AppStepper'
 import PhotoUploader from './components/PhotoUploader'
 import { useKasuriContext } from './contexts/KasuriProvider';
 import Calibration from './components/Calibration';
+import Measurement from './components/Measurement';
 
 export default function App() {
     const { step } = useKasuriContext();
@@ -35,7 +36,7 @@ export default function App() {
                 overflow: 'auto'    // 中身が溢れたらここだけスクロール
             }}>
 
-                {[<PhotoUploader/>, <Calibration/>].at(step)}
+                {[<PhotoUploader/>, <Calibration/>, <Measurement/>].at(step)}
             </Box>
         </Box>
     )
