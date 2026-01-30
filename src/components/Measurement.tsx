@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { Box, Button, Typography, Paper, Divider, TextField, List, ListItem, ListItemText, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Button, Typography, Paper, Divider, List, ListItem, ListItemText, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PanToolIcon from '@mui/icons-material/PanTool'; 
 import AddLocationIcon from '@mui/icons-material/AddLocation'; 
@@ -12,7 +12,7 @@ export default function MeasurementStep() {
     const { image, setImage, points, setPoints, config, setConfig, setStep, isPortrait, markers, setMarkers } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null);
-    const listEndRef = useRef<HTMLDivElement>(null);
+    const listContainerRef = useRef<HTMLDivElement>(null);
 
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
     const [magnifierPos, setMagnifierPos] = useState<{ x: number, y: number } | null>(null);
@@ -296,9 +296,17 @@ export default function MeasurementStep() {
         }
     };
 
+    // 座標が追加されたら、リスト内だけを一番下へスクロール
     useEffect(() => {
-        if (markers.length > 0) listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [markers]);
+        if (listContainerRef.current) {
+            const container = listContainerRef.current;
+            // 箱の中身の高さ (scrollHeight) まで、箱のスクロール位置 (scrollTop) を飛ばす
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, [markers.length]);
 
     // データエクスポート処理
     const handleExport = () => {
@@ -403,6 +411,7 @@ export default function MeasurementStep() {
                 </Box>
             </Box>
 
+            {/* ルーペを表示する */}
             {magnifierPos && mode === 'measure' && (
                 <Paper
                     elevation={10}
@@ -458,50 +467,81 @@ export default function MeasurementStep() {
                 </Paper>
             )}
 
-            <Box sx={{ width: isPortrait ? '100%' : '320px', height: isPortrait ? '40%' : '100%', display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                <Paper sx={{ p: 2, borderRadius: '12px' }}>
-                    <Typography variant="subtitle2" gutterBottom color="textSecondary">図面の設定 (total)</Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <TextField label="総往数" type="number" value={config.totalYuki} onChange={(e) => setConfig({ ...config, totalYuki: Number(e.target.value) })} fullWidth size="small" />
-                        <TextField label="総羽数" type="number" value={config.totalHane} onChange={(e) => setConfig({ ...config, totalHane: Number(e.target.value) })} fullWidth size="small" />
-                    </Box>
-                </Paper>
-                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>計測リスト</Typography>
+            {/* 右側（横向き）または下側（縦向き）の操作パネル */}
+            <Box
+                sx={{
+                    width: isPortrait ? '100%' : '300px',
+                    // 横向きの時は画面の高さに完全に固定する
+                    height: isPortrait ? 'auto' : 'calc(100vh - 60px)', 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                    overflow: 'hidden', // はみ出しを禁止
+                }}
+            >
+                <Paper
+                    sx={{
+                        p: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        // 縦なら300px固定、横なら残りの高さを全部使う
+                        height: isPortrait ? '300px' : '100%', 
+                        minHeight: 0, // Flexの子要素が親を突き破るのを防ぐ
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            計測リスト
+                        </Typography>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button size="small" variant="outlined" onClick={handlePdfExport}>PDF出力</Button>
+                            <Button size="small" variant="outlined" onClick={handlePdfExport}>PDF</Button>
                             <Button size="small" variant="contained" onClick={handleExport}>保存</Button>
                         </Box>
                     </Box>
+
                     <Divider />
-                    <List dense sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: isPortrait ? '200px' : 'none' }}>
-                        {markers.map((m, i) => (
-                            <ListItem key={i} divider secondaryAction={<IconButton edge="end" onClick={() => setMarkers(markers.filter((_, idx) => idx !== i))}><DeleteIcon /></IconButton>}>
-                                <ListItemText primary={`${i + 1}. ${m.yuki} 往 / ${m.hane} 羽`} />
-                            </ListItem>
-                        ))}
-                        <div ref={listEndRef} />
-                    </List>
-                </Paper>
-                <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Button 
-                        fullWidth 
-                        variant="outlined" 
-                        onClick={() => setStep(1)}
+
+                    {/* リストエリア：ここが自律的にスクロールする */}
+                    <Box 
+                        ref={listContainerRef} // ★ここに追加
+                        sx={{ 
+                            flexGrow: 1, 
+                            overflowY: 'auto', 
+                            mt: 1,
+                            // スムーズなスクロールを有効にするための指定
+                            scrollBehavior: 'smooth',
+                            minHeight: 0,
+                        }}
                     >
+                        <List dense>
+                            {markers.map((m, i) => (
+                                <ListItem
+                                    key={i}
+                                    divider
+                                    secondaryAction={
+                                        <IconButton edge="end" onClick={() => setMarkers(markers.filter((_, idx) => idx !== i))}>
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    }
+                                >
+                                    <ListItemText primary={`${i + 1}. ${m.yuki} 往 / ${m.hane} 羽`} />
+                                </ListItem>
+                            ))}
+                        </List>
+                    </Box>
+                </Paper>
+
+                {/* 下部の固定ボタンエリア */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                    <Button fullWidth variant="outlined" onClick={() => setStep(1)}>
                         四隅を調整し直す
                     </Button>
-                    
                     <Button
                         fullWidth
                         variant="text"
                         component="label"
-                        sx={{ 
-                            fontSize: '0.8rem', 
-                            color: 'text.secondary',
-                            textDecoration: 'underline'
-                        }}
+                        sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'underline' }}
                     >
                         別の保存ファイルを開く
                         <input type="file" accept=".json" hidden onChange={handleImport} />
