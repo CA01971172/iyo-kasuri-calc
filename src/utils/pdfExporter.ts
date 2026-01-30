@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf';
-import type { Marker } from '../contexts/KasuriProvider';
 
 // publicフォルダに置いたフォントファイルをBase64に変換して読み込む
 const loadLocalFont = async (url: string) => {
@@ -59,7 +58,7 @@ export const exportToPdf = async (
 
     // 点を少し小さめに（分母を250くらいに調整）
     const r = img.width / 250; 
-    markers.forEach((m, i) => {
+    markers.forEach((m, _i) => {
         const x = m.x * img.width;
         const y = m.y * img.height;
         ctx.fillStyle = '#ffff00';
