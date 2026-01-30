@@ -76,7 +76,7 @@ export default function PhotoUploader() {
             if (data.markers) setMarkers(data.markers); // ContextにsetMarkersがある前提
             
             // 全て揃っていれば計測画面(Step 3)へ直接ジャンプ
-            setStep(3);
+            setStep(2);
         } catch (err) {
             alert("ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。");
         }
