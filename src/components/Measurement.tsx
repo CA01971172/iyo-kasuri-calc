@@ -5,6 +5,7 @@ import PanToolIcon from '@mui/icons-material/PanTool';
 import AddLocationIcon from '@mui/icons-material/AddLocation'; 
 import { useKasuriContext } from '../contexts/KasuriProvider';
 import { getHomographyMatrix, transformPoint } from '../utils/homography';
+import { saveJsonFile } from '../utils/fileHandler'; // 先ほど作成した共通関数
 
 export default function MeasurementStep() {
     const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
@@ -276,6 +277,19 @@ export default function MeasurementStep() {
         if (markers.length > 0) listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [markers]);
 
+    // データエクスポート処理
+    const handleExport = () => {
+        const data = {
+            image,      // base64画像データ
+            points,     // 四隅の座標
+            config,     // 総往数・総羽数
+            markers,    // 打った点
+            version: "1.0"
+        };
+        const date = new Date().toLocaleDateString().replace(/\//g, '-');
+        saveJsonFile(data, `かすり計測保存_${date}.json`);
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: isPortrait ? 'column' : 'row', height: '100%', p: 2, gap: 2, boxSizing: 'border-box' }}>
             <Box sx={{ flexGrow: 2, display: 'flex', flexDirection: 'column', minHeight: isPortrait ? '50vh' : 0 }}>
@@ -342,7 +356,12 @@ export default function MeasurementStep() {
                     </Box>
                 </Paper>
                 <Paper sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px', minHeight: 0 }}>
-                    <Typography variant="subtitle1" sx={{ p: 2, pb: 1, fontWeight: 'bold', bgcolor: '#f5f5f5' }}>計測リスト</Typography>
+                    <Box sx={{ p: 2, pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f5f5f5' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>計測リスト</Typography>
+                        <Button size="small" variant="contained" onClick={handleExport} sx={{ fontSize: '0.75rem' }}>
+                            ファイルに保存
+                        </Button>
+                    </Box>
                     <Divider />
                     <List dense sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: isPortrait ? '200px' : 'none' }}>
                         {markers.map((m, i) => (
