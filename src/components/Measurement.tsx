@@ -5,10 +5,10 @@ import PanToolIcon from '@mui/icons-material/PanTool';
 import AddLocationIcon from '@mui/icons-material/AddLocation'; 
 import { useKasuriContext } from '../contexts/KasuriProvider';
 import { getHomographyMatrix, transformPoint } from '../utils/homography';
-import { saveJsonFile } from '../utils/fileHandler'; // 先ほど作成した共通関数
+import { saveJsonFile, loadJsonFile } from '../utils/fileHandler';
 
 export default function MeasurementStep() {
-    const { image, points, config, setConfig, setStep, isPortrait, markers, setMarkers } = useKasuriContext();
+    const { image, setImage, points, setPoints, config, setConfig, setStep, isPortrait, markers, setMarkers } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
@@ -289,6 +289,33 @@ export default function MeasurementStep() {
         saveJsonFile(data, `かすり計測保存_${date}.json`);
     };
 
+    // 読み込み処理
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // お祖母様がうっかり今の作業を消さないための確認
+        if (markers.length > 0) {
+            if (!window.confirm("今の計測データが消えてしまいますが、別のファイルを読み込んでもよろしいですか？")) {
+                return;
+            }
+        }
+
+        try {
+            const data = await loadJsonFile(file);
+            if (data.image) setImage(data.image);
+            if (data.points) setPoints(data.points);
+            if (data.config) setConfig(data.config);
+            if (data.markers) setMarkers(data.markers);
+            // Stepを移動する必要はない（既にStep 2にいるため）が、必要なら強制セット
+            setStep(2); 
+        } catch (err) {
+            alert("読み込みに失敗しました。ファイルを確認してください。");
+        }
+        // 同じファイルを連続で読み込めるようにinputをリセット
+        e.target.value = '';
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: isPortrait ? 'column' : 'row', height: '100%', p: 2, gap: 2, boxSizing: 'border-box' }}>
             <Box sx={{ flexGrow: 2, display: 'flex', flexDirection: 'column', minHeight: isPortrait ? '50vh' : 0 }}>
@@ -371,7 +398,29 @@ export default function MeasurementStep() {
                         <div ref={listEndRef} />
                     </List>
                 </Paper>
-                <Button fullWidth variant="outlined" onClick={() => setStep(1)} sx={{ mt: 'auto' }}>四隅を調整し直す</Button>
+                <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Button 
+                        fullWidth 
+                        variant="outlined" 
+                        onClick={() => setStep(1)}
+                    >
+                        四隅を調整し直す
+                    </Button>
+                    
+                    <Button
+                        fullWidth
+                        variant="text"
+                        component="label"
+                        sx={{ 
+                            fontSize: '0.8rem', 
+                            color: 'text.secondary',
+                            textDecoration: 'underline'
+                        }}
+                    >
+                        別の保存ファイルを開く
+                        <input type="file" accept=".json" hidden onChange={handleImport} />
+                    </Button>
+                </Box>
             </Box>
         </Box>
     );
