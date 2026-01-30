@@ -181,44 +181,6 @@ const draw = useCallback(() => {
         }
     };
 
-    // --- 5. 移動制限（迷子防止）付きハンドラ ---
-    // handleMove 内の移動制限ロジックの修正案
-    const handleMove = (e: any) => {
-        if (mode === 'pan' && lastTouch) {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            const dx = clientX - lastTouch.x;
-            const dy = clientY - lastTouch.y;
-
-            setZoom(prev => {
-                const newX = prev.x + dx;
-                const newY = prev.y + dy;
-
-                // 制限の計算：図面の半分（または任意の値）が画面内に残るように
-                // cacheCanvas の解像度に基づいた制限
-                const canvas = canvasRef.current;
-                if (!canvas) return prev;
-
-                // 画像の端が「画面の中央」を越えないように制限
-                // これにより、全域を中央で拡大可能かつ、完全な消失を防ぐ
-                const limitX = canvas.width / 2;
-                const limitY = canvas.height / 2;
-
-                return {
-                    ...prev,
-                    x: Math.max(-limitX * prev.scale, Math.min(limitX, newX)),
-                    y: Math.max(-limitY * prev.scale, Math.min(limitY, newY))
-                };
-            });
-            setLastTouch({ x: clientX, y: clientY });
-        } else if (draggingPos) {
-            // 計測モード時のズレ防止：canvas外に出たら一旦 draggingPos を null にするか、端に吸着させる
-            const pos = getPos(e);
-            setDraggingPos(pos);
-        }
-    };
-
     // 2. useEffect を使ってグローバルにイベントを登録
     useEffect(() => {
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
