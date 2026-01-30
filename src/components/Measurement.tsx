@@ -8,6 +8,7 @@ export default function MeasurementStep() {
 const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const listEndRef = useRef<HTMLDivElement>(null); // ★スクロール先の目印用
     
     const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
@@ -95,7 +96,7 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
             ctx.fillStyle = '#ffff00';
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.beginPath();
-            ctx.arc(m.x * canvas.width, m.y * canvas.height, 1.5, 0, Math.PI * 2);
+            ctx.arc(m.x * canvas.width, m.y * canvas.height, 2, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
@@ -170,25 +171,67 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
         }
     };
 
+    // --- マーカーが追加されたらスクロールを実行 ---
+    useEffect(() => {
+        if (markers.length > 0) {
+            listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [markers]); // markers が更新されるたびに発動
+
     return (
-        <Box sx={{ display: 'flex', flexDirection: isPortrait ? 'column' : 'row', height: '100%', p: 2, gap: 2, boxSizing: 'border-box' }}>
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Box sx={{ 
+            display: 'flex', 
+            flexDirection: isPortrait ? 'column' : 'row', 
+            height: '100%', 
+            p: 2, 
+            gap: 2, 
+            boxSizing: 'border-box' 
+        }}>
+            {/* 左/上：Canvasエリア */}
+            <Box sx={{ 
+                flexGrow: 2, // 縦向きの時、Canvasにより多くのスペースを割り当てる
+                display: 'flex', 
+                flexDirection: 'column', 
+                minHeight: isPortrait ? '50vh' : 0 // 縦向きの時、画面の半分はCanvasを確保
+            }}>
                 <Typography variant="h6" sx={{ textAlign: 'center', mb: 1, fontWeight: 'bold' }}>
                     補正済み図面で計測
                 </Typography>
-                <Box sx={{ flexGrow: 1, bgcolor: '#222', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Box sx={{ 
+                    flexGrow: 1, 
+                    bgcolor: '#222', 
+                    borderRadius: '12px', 
+                    overflow: 'hidden', 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center' 
+                }}>
                     <canvas
                         ref={canvasRef}
                         onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd}
                         onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', touchAction: 'none', cursor: 'crosshair' }}
+                        style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'contain', 
+                            touchAction: 'none', 
+                            cursor: 'crosshair' 
+                        }}
                     />
                 </Box>
             </Box>
 
-            <Box sx={{ width: isPortrait ? '100%' : '320px', display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                {/* 右パネルの設定・リスト部分は前回のコードを継承 */}
+            {/* 右/下：操作・リストエリア */}
+            <Box sx={{ 
+                width: isPortrait ? '100%' : '320px', 
+                height: isPortrait ? '40%' : '100%', // 縦向き時は高さを制限
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 2, 
+                flexShrink: 0 
+            }}>
                 <Paper sx={{ p: 2, borderRadius: '12px' }}>
+                    {/* 設定部分はそのまま */}
                     <Typography variant="subtitle2" gutterBottom color="textSecondary">図面の設定 (total)</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField label="総往数" type="number" value={config.totalYuki} onChange={(e) => setConfig({ ...config, totalYuki: Number(e.target.value) })} fullWidth size="small" />
@@ -196,25 +239,38 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
                     </Box>
                 </Paper>
 
-                <Paper sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px' }}>
-                    <Typography variant="subtitle1" sx={{ p: 2, pb: 1, fontWeight: 'bold', bgcolor: '#f5f5f5' }}>計測リスト</Typography>
+                <Paper sx={{ 
+                    flexGrow: 1, 
+                    overflow: 'hidden', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    borderRadius: '12px',
+                    minHeight: 0 // これを入れないと flexContainer 内で縮まない
+                }}>
+                    <Typography variant="subtitle1" sx={{ p: 2, pb: 1, fontWeight: 'bold', bgcolor: '#f5f5f5' }}>
+                        計測リスト
+                    </Typography>
                     <Divider />
-                    <List dense sx={{ flexGrow: 1, overflow: 'auto' }}>
+                    {/* リスト部分にスクロールを強制する */}
+                    <List dense sx={{ 
+                        flexGrow: 1, 
+                        overflowY: 'auto', // 縦方向にスクロールを許可
+                        maxHeight: isPortrait ? '200px' : 'none' // 縦向きの時だけリストの高さを抑える
+                    }}>
                         {markers.map((m, i) => (
                             <ListItem key={i} divider secondaryAction={
                                 <IconButton edge="end" onClick={() => setMarkers(markers.filter((_, idx) => idx !== i))}>
                                     <DeleteIcon />
                                 </IconButton>
                             }>
-                                <ListItemText 
-                                    primary={`${i + 1}. ${m.yuki} 往 / ${m.hane} 羽`} 
-                                />
+                                <ListItemText primary={`${i + 1}. ${m.yuki} 往 / ${m.hane} 羽`} />
                             </ListItem>
                         ))}
+                        <div ref={listEndRef} /> {/* ★スクロール先の目印用 */}
                     </List>
                 </Paper>
 
-                <Button fullWidth variant="outlined" onClick={() => setStep(1)}>
+                <Button fullWidth variant="outlined" onClick={() => setStep(1)} sx={{ mt: 'auto' }}>
                     四隅を調整し直す
                 </Button>
             </Box>
