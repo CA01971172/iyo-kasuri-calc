@@ -8,12 +8,11 @@ import { getHomographyMatrix, transformPoint } from '../utils/homography';
 import { saveJsonFile } from '../utils/fileHandler'; // 先ほど作成した共通関数
 
 export default function MeasurementStep() {
-    const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
+    const { image, points, config, setConfig, setStep, isPortrait, markers, setMarkers } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const listEndRef = useRef<HTMLDivElement>(null);
-    
-    const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
+
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
     const [mode, setMode] = useState<'measure' | 'pan'>('measure'); 

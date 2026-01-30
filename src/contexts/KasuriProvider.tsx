@@ -16,6 +16,9 @@ export type KasuriConfig = {
     totalHane: number;    // 総羽数
 };
 
+// マーカーの型
+export type Marker = { yuki: number, hane: number, x: number, y: number };
+
 // Contextが保持する全データの型
 type KasuriContextType = {
     step: number;
@@ -27,6 +30,8 @@ type KasuriContextType = {
     config: KasuriConfig;
     setConfig: (config: KasuriConfig) => void;
     isPortrait: boolean;
+    markers: Marker[];
+    setMarkers: React.Dispatch<React.SetStateAction<Marker[]>>;
 }
 
 const DataContext = createContext<KasuriContextType>({} as KasuriContextType);
@@ -39,7 +44,7 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
         { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.8 }
     ]);
     const isPortrait = useMediaQuery('(orientation: portrait)');
-
+    const [markers, setMarkers] = useState<Marker[]>([]);
     const [config, setConfig] = useState<KasuriConfig>({
         totalYuki: 32,       // 32往
         totalHane: 80,       // 80羽（図面の横幅が80ユニット分）
@@ -55,6 +60,8 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
         step,
         setStep,
         isPortrait,
+        markers,
+        setMarkers,
     };
 
     return (

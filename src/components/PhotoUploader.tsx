@@ -1,16 +1,14 @@
 import { useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
-import { Button, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Button, Box, Typography } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import { useKasuriContext } from '../contexts/KasuriProvider';
+import { loadJsonFile } from '../utils/fileHandler';
 
 export default function PhotoUploader() {
-    // 縦長(Portrait)判定：PCブラウザを細長くしても反応します
-    const isPortrait = useMediaQuery('(orientation: portrait)');
-    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const { image, setImage, step, setStep } = useKasuriContext();
+    const { image, step, setConfig, setStep, isPortrait, setImage, setPoints, setMarkers } = useKasuriContext();
 
     // 初期描画：既に画像がある場合にCanvasにセット
     useEffect(() => {
@@ -62,6 +60,27 @@ export default function PhotoUploader() {
     function triggerFileInput() {
         fileInputRef.current?.click();
     }
+
+    // データのインポート処理
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const data = await loadJsonFile(file);
+            
+            // Contextの状態を一気に復元
+            if (data.image) setImage(data.image);
+            if (data.points) setPoints(data.points);
+            if (data.config) setConfig(data.config);
+            if (data.markers) setMarkers(data.markers); // ContextにsetMarkersがある前提
+            
+            // 全て揃っていれば計測画面(Step 3)へ直接ジャンプ
+            setStep(3);
+        } catch (err) {
+            alert("ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。");
+        }
+    };
 
     return (
         <Box sx={{ 
@@ -116,6 +135,19 @@ export default function PhotoUploader() {
                         >
                             写真を撮る
                         </Button>
+                        <Box sx={{ mt: 4 }}>
+                            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                                保存したデータがある場合はこちら
+                            </Typography>
+                            <Button
+                                variant="outlined"
+                                component="label" // buttonをlabelとして扱い、中のinputに反応させる
+                                sx={{ width: 200 }}
+                            >
+                                続きから再開
+                                <input type="file" accept=".json" hidden onChange={handleImport} />
+                            </Button>
+                        </Box>
                     </Box>
                 ) : (
                     <Box sx={{
@@ -127,8 +159,6 @@ export default function PhotoUploader() {
                             style={{
                                 maxWidth: '100%',
                                 maxHeight: '100%',
-                                // TODO: 縦幅制限をもう少しスマートに
-                                // maxHeight: isPortrait ? '70vh' : '100%', // 向きに合わせて最大サイズを調整
                                 objectFit: 'contain',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
                             }}
