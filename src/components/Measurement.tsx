@@ -15,6 +15,7 @@ export default function MeasurementStep() {
     const listEndRef = useRef<HTMLDivElement>(null);
 
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
+    const [magnifierPos, setMagnifierPos] = useState<{ x: number, y: number } | null>(null);
 
     const [mode, setMode] = useState<'measure' | 'pan'>('measure'); 
     const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 }); 
@@ -204,8 +205,18 @@ export default function MeasurementStep() {
     };
 
     const handleStart = (e: any) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return; // canvasがない場合は何もしない
+        const rect = canvas.getBoundingClientRect();
+
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        // ルーペを表示する位置をセット
+        const x = (clientX - rect.left - zoom.x) / zoom.scale;
+        const y = (clientY - rect.top - zoom.y) / zoom.scale;
+        setMagnifierPos({ x, y });
+
         if (mode === 'pan') {
             setLastTouch({ x: clientX, y: clientY });
         } else {
@@ -215,16 +226,23 @@ export default function MeasurementStep() {
 
     useEffect(() => {
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+            // ★追加：ルーペ用の座標を常に計算してセット
+            const x = (clientX - rect.left - zoom.x) / zoom.scale;
+            const y = (clientY - rect.top - zoom.y) / zoom.scale;
+            setMagnifierPos({ x, y });
+
             if (mode === 'pan' && lastTouch) {
-                const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-                const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-                
                 const dx = clientX - lastTouch.x;
                 const dy = clientY - lastTouch.y;
 
                 setZoom(prev => {
-                    const canvas = canvasRef.current;
-                    if (!canvas) return prev;
                     const newX = prev.x + dx;
                     const newY = prev.y + dy;
                     const limitX = canvas.width / 2;
@@ -245,6 +263,7 @@ export default function MeasurementStep() {
         const handleGlobalUp = () => {
             setLastTouch(null);
             setDraggingPos(null);
+            setMagnifierPos(null); // ★追加：指を離したらルーペを消す
         };
 
         window.addEventListener('mousemove', handleGlobalMove);
@@ -258,7 +277,8 @@ export default function MeasurementStep() {
             window.removeEventListener('mouseup', handleGlobalUp);
             window.removeEventListener('touchend', handleGlobalUp);
         };
-    }, [mode, lastTouch, draggingPos, zoom.scale]); 
+        // 依存配列に zoom.x と zoom.y も追加しておくと座標計算が正確になります
+    }, [mode, lastTouch, draggingPos, zoom.scale, zoom.x, zoom.y]);
 
     const handleEnd = () => {
         if (mode === 'pan') {
@@ -379,6 +399,59 @@ export default function MeasurementStep() {
                     </Button>
                 </Box>
             </Box>
+
+            {magnifierPos && image && mode === 'measure' && (
+                <Paper
+                    elevation={10}
+                    sx={{
+                        position: 'absolute',
+                        top: 20,
+                        left: isPortrait ? 20 : 'auto', 
+                        right: isPortrait ? 'auto' : 20, // 縦持ちなら左上、横持ちなら右上に
+                        width: 160,
+                        height: 160,
+                        overflow: 'hidden',
+                        borderRadius: '50%',
+                        border: '4px solid #fff',
+                        zIndex: 1000,
+                        pointerEvents: 'none', // ルーペが触れないようにして操作を邪魔しない
+                    }}
+                >
+                    <canvas
+                        ref={(el) => {
+                            if (!el || !image) return;
+                            const ctx = el.getContext('2d');
+                            if (!ctx) return;
+                            const size = 160;
+                            const mag = 3; // 3倍拡大
+                            el.width = size;
+                            el.height = size;
+                            
+                            const img = new Image();
+                            img.src = image;
+                            // 元画像から切り取る範囲
+                            const sourceSize = size / mag;
+                            
+                            ctx.drawImage(
+                                img,
+                                magnifierPos.x - sourceSize / 2,
+                                magnifierPos.y - sourceSize / 2,
+                                sourceSize,
+                                sourceSize,
+                                0, 0, size, size
+                            );
+
+                            // 中央の照準（赤十字）
+                            ctx.strokeStyle = 'red';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(size/2 - 15, size/2); ctx.lineTo(size/2 + 15, size/2);
+                            ctx.moveTo(size/2, size/2 - 15); ctx.lineTo(size/2, size/2 + 15);
+                            ctx.stroke();
+                        }}
+                    />
+                </Paper>
+            )}
 
             <Box sx={{ width: isPortrait ? '100%' : '320px', height: isPortrait ? '40%' : '100%', display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
                 <Paper sx={{ p: 2, borderRadius: '12px' }}>
