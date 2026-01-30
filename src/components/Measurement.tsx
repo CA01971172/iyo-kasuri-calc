@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Box, Button, Typography, Paper, Divider, TextField, List, ListItem, ListItemText, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import PanToolIcon from '@mui/icons-material/PanTool'; // 移動用アイコン
-import AddLocationIcon from '@mui/icons-material/AddLocation'; // 計測用アイコン
+import PanToolIcon from '@mui/icons-material/PanTool'; 
+import AddLocationIcon from '@mui/icons-material/AddLocation'; 
 import { useKasuriContext } from '../contexts/KasuriProvider';
 import { getHomographyMatrix, transformPoint } from '../utils/homography';
 
@@ -15,12 +15,10 @@ export default function MeasurementStep() {
     const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
-    // --- ズーム・移動用のState ---
-    const [mode, setMode] = useState<'measure' | 'pan'>('measure'); // 操作モード
-    const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 }); // 拡大率と表示オフセット
-    const [lastTouch, setLastTouch] = useState<{ x: number, y: number } | null>(null); // ドラッグ計算用
+    const [mode, setMode] = useState<'measure' | 'pan'>('measure'); 
+    const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 }); 
+    const [lastTouch, setLastTouch] = useState<{ x: number, y: number } | null>(null); 
 
-    // 1. 赤枠の比率算出（既存の正確なロジックを維持）
     const rectRatio = useMemo(() => {
         const topW = Math.sqrt(Math.pow(points[1].x - points[0].x, 2) + Math.pow(points[1].y - points[0].y, 2));
         const bottomW = Math.sqrt(Math.pow(points[2].x - points[3].x, 2) + Math.pow(points[2].y - points[3].y, 2));
@@ -34,7 +32,6 @@ export default function MeasurementStep() {
         return getHomographyMatrix(dst, points);
     }, [points]);
 
-    // 2. キャッシュ生成（既存ロジック）
     const generateCache = useCallback(() => {
         if (!image || !invHMatrix) return;
         const img = new Image();
@@ -78,26 +75,21 @@ export default function MeasurementStep() {
 
     useEffect(() => { generateCache(); }, [generateCache]);
 
-    // 3. 描画関数（ズーム・移動・十字線をすべて反映）
-const draw = useCallback(() => {
+    const draw = useCallback(() => {
         const canvas = canvasRef.current;
         const cache = cacheCanvasRef.current;
         if (!canvas || !cache) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // 解像度はキャッシュに合わせる
         canvas.width = cache.width;
         canvas.height = cache.height;
 
         ctx.save();
-        // 移動と拡大を適用
         ctx.translate(zoom.x, zoom.y);
         ctx.scale(zoom.scale, zoom.scale);
-
         ctx.drawImage(cache, 0, 0);
 
-        // マーカー描画
         markers.forEach(m => {
             ctx.fillStyle = '#ffff00';
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
@@ -107,7 +99,6 @@ const draw = useCallback(() => {
             ctx.stroke();
         });
 
-        // 十字線ガイド（draggingPosは補正後画像上の 0~1）
         if (draggingPos) {
             const px = draggingPos.x * cache.width;
             const py = draggingPos.y * cache.height;
@@ -124,7 +115,6 @@ const draw = useCallback(() => {
 
     useEffect(() => { draw(); }, [draw]);
 
-    // --- 4. 座標取得（完璧な余白計算 ＋ ズーム逆算） ---
     const getPos = (e: any) => {
         const canvas = canvasRef.current;
         const cache = cacheCanvasRef.current;
@@ -134,30 +124,24 @@ const draw = useCallback(() => {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // 1. まず「Canvasの表示枠」の中での物理タッチ位置(px)を出す
         const relX = clientX - rect.left;
         const relY = clientY - rect.top;
 
-        // 2. ズームと移動量を逆算して「ズーム前のCanvas座標」に戻す
-        // ブラウザ上の1pxをCanvas上の解像度に変換して計算
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const unzoomedX = (relX * scaleX - zoom.x) / zoom.scale;
         const unzoomedY = (relY * scaleY - zoom.y) / zoom.scale;
 
-        // 3. ここから「完璧だった頃の余白計算」を適用
         const containerRatio = canvas.width / canvas.height;
         const contentRatio = cache.width / cache.height;
 
         let x, y;
         if (containerRatio > contentRatio) {
-            // 左右に余白があるケース
             const displayWidth = canvas.height * contentRatio;
             const offsetX = (canvas.width - displayWidth) / 2;
             x = (unzoomedX - offsetX) / displayWidth;
             y = unzoomedY / canvas.height;
         } else {
-            // 上下に余白があるケース
             const displayHeight = canvas.width / contentRatio;
             const offsetY = (canvas.height - displayHeight) / 2;
             x = unzoomedX / canvas.width;
@@ -170,7 +154,36 @@ const draw = useCallback(() => {
         };
     };
 
-    // 5. ハンドラ（計測と移動の分岐）
+    // --- ★追加：中心点固定ズーム ---
+    const handleZoomChange = (newScale: number) => {
+        setZoom(prev => {
+            const canvas = canvasRef.current;
+            if (!canvas) return { ...prev, scale: newScale };
+
+            // 画面の中心を基準点にする
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // 現在の表示で中心にある「画像上の位置」を逆算
+            const imageX = (centerX - prev.x) / prev.scale;
+            const imageY = (centerY - prev.y) / prev.scale;
+
+            // 新しいスケールで、その画像位置が中心に来るように座標を再計算
+            const newX = centerX - imageX * newScale;
+            const newY = centerY - imageY * newScale;
+
+            // 移動制限（マスターと決めた「半分まで」の制限）
+            const limitX = canvas.width / 2;
+            const limitY = canvas.height / 2;
+
+            return {
+                scale: newScale,
+                x: Math.max(-limitX * newScale, Math.min(limitX, newX)),
+                y: Math.max(-limitY * newScale, Math.min(limitY, newY))
+            };
+        });
+    };
+
     const handleStart = (e: any) => {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -181,10 +194,8 @@ const draw = useCallback(() => {
         }
     };
 
-    // 2. useEffect を使ってグローバルにイベントを登録
     useEffect(() => {
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
-            // 移動モード(pan)かつ、ドラッグ中(lastTouchがある)の場合
             if (mode === 'pan' && lastTouch) {
                 const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
                 const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
@@ -195,24 +206,18 @@ const draw = useCallback(() => {
                 setZoom(prev => {
                     const canvas = canvasRef.current;
                     if (!canvas) return prev;
-
                     const newX = prev.x + dx;
                     const newY = prev.y + dy;
-
-                    // マスターと決めた「画像の端が画面中央を越えない」制限
                     const limitX = canvas.width / 2;
                     const limitY = canvas.height / 2;
-
                     return {
                         ...prev,
                         x: Math.max(-limitX * prev.scale, Math.min(limitX, newX)),
                         y: Math.max(-limitY * prev.scale, Math.min(limitY, newY))
                     };
                 });
-                // 常に最新の座標で更新し続けるのでワープしない
                 setLastTouch({ x: clientX, y: clientY });
             } 
-            // 計測モード中の十字線移動（これは canvas 内にいる時だけでOK）
             else if (draggingPos) {
                 setDraggingPos(getPos(e));
             }
@@ -223,7 +228,6 @@ const draw = useCallback(() => {
             setDraggingPos(null);
         };
 
-        // イベントの登録
         window.addEventListener('mousemove', handleGlobalMove);
         window.addEventListener('touchmove', handleGlobalMove, { passive: false });
         window.addEventListener('mouseup', handleGlobalUp);
@@ -235,7 +239,7 @@ const draw = useCallback(() => {
             window.removeEventListener('mouseup', handleGlobalUp);
             window.removeEventListener('touchend', handleGlobalUp);
         };
-    }, [mode, lastTouch, draggingPos, zoom.scale]); // 依存配列に注意
+    }, [mode, lastTouch, draggingPos, zoom.scale]); 
 
     const handleEnd = () => {
         if (mode === 'pan') {
@@ -257,7 +261,6 @@ const draw = useCallback(() => {
     return (
         <Box sx={{ display: 'flex', flexDirection: isPortrait ? 'column' : 'row', height: '100%', p: 2, gap: 2, boxSizing: 'border-box' }}>
             <Box sx={{ flexGrow: 2, display: 'flex', flexDirection: 'column', minHeight: isPortrait ? '50vh' : 0 }}>
-                {/* ズーム操作UI */}
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 1 }}>
                     <ToggleButtonGroup value={mode} exclusive onChange={(_, m) => m && setMode(m)} size="small" color="primary">
                         <ToggleButton value="measure"><AddLocationIcon sx={{ mr: 1 }}/>計測</ToggleButton>
@@ -268,7 +271,8 @@ const draw = useCallback(() => {
                     <input 
                         type="range" min="1" max="5" step="0.1" 
                         value={zoom.scale} 
-                        onChange={(e) => setZoom(prev => ({ ...prev, scale: parseFloat(e.target.value) }))}
+                        // ★修正：中心固定ズーム関数を呼ぶ
+                        onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                         style={{ width: '100px' }}
                     />
                     <Button size="small" onClick={() => setZoom({ scale: 1, x: 0, y: 0 })}>リセット</Button>
@@ -285,7 +289,6 @@ const draw = useCallback(() => {
             </Box>
 
             <Box sx={{ width: isPortrait ? '100%' : '320px', height: isPortrait ? '40%' : '100%', display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                {/* 設定・リスト・ボタン類は以前の完ぺきなレイアウトを維持 */}
                 <Paper sx={{ p: 2, borderRadius: '12px' }}>
                     <Typography variant="subtitle2" gutterBottom color="textSecondary">図面の設定 (total)</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
