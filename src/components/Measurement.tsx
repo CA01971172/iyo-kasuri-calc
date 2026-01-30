@@ -13,6 +13,8 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
     const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
+    const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 });
+
     // --- 1. 座標計算の基準となる「赤枠の比率」を算出 ---
     const rectRatio = useMemo(() => {
         // Step 2 で決めた4点の相対座標から、歪み補正後の論理的な比率を出す
@@ -84,35 +86,29 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        canvas.width = cache.width;
-        canvas.height = cache.height;
+        // キャンバスをクリア
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // キャッシュされた補正済み画像を貼り付けるだけ（爆速！）
+        ctx.save();
+        
+        // ズームとパンの適用
+        // 中心点からズームするように調整
+        ctx.translate(zoom.x, zoom.y);
+        ctx.scale(zoom.scale, zoom.scale);
+
+        // キャッシュ画像の描画（比率維持はこれまでのロジック通り）
         ctx.drawImage(cache, 0, 0);
 
-        // マーカーとガイドの描画
-        ctx.save();
+        // マーカーの描画（ズームに合わせて小さく見えるようにサイズ調整）
         markers.forEach(m => {
             ctx.fillStyle = '#ffff00';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.beginPath();
-            ctx.arc(m.x * canvas.width, m.y * canvas.height, 2, 0, Math.PI * 2);
+            ctx.arc(m.x * cache.width, m.y * cache.height, 2 / zoom.scale, 0, Math.PI * 2);
             ctx.fill();
-            ctx.stroke();
         });
-
-        if (draggingPos) {
-            const px = draggingPos.x * canvas.width;
-            const py = draggingPos.y * canvas.height;
-            ctx.strokeStyle = '#00e5ff';
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height);
-            ctx.moveTo(0, py); ctx.lineTo(canvas.width, py);
-            ctx.stroke();
-        }
+        
         ctx.restore();
-    }, [markers, draggingPos]);
+    }, [markers, draggingPos, zoom]);
 
     useEffect(() => { draw(); }, [draw]);
 
@@ -126,23 +122,35 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        const containerRatio = rect.width / rect.height;
-        const contentRatio = cache.width / cache.height;
+        // 1. ブラウザ上のタッチ位置を、Canvasの表示サイズに対する 0~1 の比率に変換
+        const touchRelX = (clientX - rect.left) / rect.width;
+        const touchRelY = (clientY - rect.top) / rect.height;
+
+        // 2. ズーム倍率と移動量を逆算して、拡大前の「論理的なCanvas内座標」に戻す
+        // ※ zoom = { scale: number, x: number, y: number } という state を想定
+        // zoom.x, zoom.y はピクセル単位の移動量なので、Canvasの解像度で補正します
+        const unzoomedX = (touchRelX * canvas.width - zoom.x) / zoom.scale;
+        const unzoomedY = (touchRelY * canvas.height - zoom.y) / zoom.scale;
+
+        // 3. アスペクト比の計算（ここは既存ロジックを維持）
+        const containerRatio = rect.width / rect.height; // 表示枠の比率
+        const contentRatio = cache.width / cache.height; // 補正画像の比率
 
         let x, y;
-        const relX = clientX - rect.left;
-        const relY = clientY - rect.top;
 
+        // 4. 「拡大前の座標」に対して、黒い余白（Letterbox）を差し引く
         if (containerRatio > contentRatio) {
-            const displayWidth = rect.height * contentRatio;
-            const offsetX = (rect.width - displayWidth) / 2;
-            x = (relX - offsetX) / displayWidth;
-            y = relY / rect.height;
+            // 左右に余白がある場合
+            const displayWidth = canvas.height * contentRatio; 
+            const offsetX = (canvas.width - displayWidth) / 2;
+            x = (unzoomedX - offsetX) / displayWidth;
+            y = unzoomedY / canvas.height;
         } else {
-            const displayHeight = rect.width / contentRatio;
-            const offsetY = (rect.height - displayHeight) / 2;
-            x = relX / rect.width;
-            y = (relY - offsetY) / displayHeight;
+            // 上下に余白がある場合（今回の portrait で多いケース）
+            const displayHeight = canvas.width / contentRatio;
+            const offsetY = (canvas.height - displayHeight) / 2;
+            x = unzoomedX / canvas.width;
+            y = (unzoomedY - offsetY) / displayHeight;
         }
 
         return {
