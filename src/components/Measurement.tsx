@@ -6,6 +6,7 @@ import AddLocationIcon from '@mui/icons-material/AddLocation';
 import { useKasuriContext } from '../contexts/KasuriProvider';
 import { getHomographyMatrix, transformPoint } from '../utils/homography';
 import { saveJsonFile, loadJsonFile } from '../utils/fileHandler';
+import { exportToPdf } from '../utils/pdfExporter';
 
 export default function MeasurementStep() {
     const { image, setImage, points, setPoints, config, setConfig, setStep, isPortrait, markers, setMarkers } = useKasuriContext();
@@ -316,6 +317,12 @@ export default function MeasurementStep() {
         e.target.value = '';
     };
 
+    // PDF出力実行
+    const handlePdfExport = () => {
+        if (!image) return;
+        exportToPdf(image, markers, config);
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: isPortrait ? 'column' : 'row', height: '100%', p: 2, gap: 2, boxSizing: 'border-box' }}>
             <Box sx={{ flexGrow: 2, display: 'flex', flexDirection: 'column', minHeight: isPortrait ? '50vh' : 0 }}>
@@ -381,12 +388,13 @@ export default function MeasurementStep() {
                         <TextField label="総羽数" type="number" value={config.totalHane} onChange={(e) => setConfig({ ...config, totalHane: Number(e.target.value) })} fullWidth size="small" />
                     </Box>
                 </Paper>
-                <Paper sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px', minHeight: 0 }}>
-                    <Box sx={{ p: 2, pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f5f5f5' }}>
+                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>計測リスト</Typography>
-                        <Button size="small" variant="contained" onClick={handleExport} sx={{ fontSize: '0.75rem' }}>
-                            ファイルに保存
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button size="small" variant="outlined" onClick={handlePdfExport}>PDF出力</Button>
+                            <Button size="small" variant="contained" onClick={handleExport}>保存</Button>
+                        </Box>
                     </Box>
                     <Divider />
                     <List dense sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: isPortrait ? '200px' : 'none' }}>
