@@ -7,20 +7,12 @@ import { getHomographyMatrix, transformPoint } from '../utils/homography';
 export default function MeasurementStep() {
     const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null); // キャッシュ用
     
     const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
     // --- 1. 射影変換行列の計算 ---
-    // points(歪んだ4点) から 単位正方形([0,0]~[1,1]) への変換行列
-    const hMatrix = useMemo(() => {
-        const dst = [
-            { x: 0, y: 0 }, { x: 1, y: 0 }, 
-            { x: 1, y: 1 }, { x: 0, y: 1 }
-        ];
-        return getHomographyMatrix(points, dst);
-    }, [points]);
-
     // 逆行列（描画用）：単位正方形から元の画像の座標へ
     const invHMatrix = useMemo(() => {
         const dst = [
@@ -30,47 +22,22 @@ export default function MeasurementStep() {
         return getHomographyMatrix(dst, points);
     }, [points]);
 
-    // --- 2. 座標計算ロジック（ホモグラフィ版） ---
-    const calculateYukiHane = useCallback((x: number, y: number) => {
-        if (!hMatrix) return null;
-
-        // タップした座標(x,y)を、補正後の座標(u,v)に変換
-        const res = transformPoint(x, y, hMatrix);
+    // --- 1. 画像補正キャッシュの生成 ---
+    const generateCache = useCallback(() => {
+        if (!image || !invHMatrix) return;
         
-        // 0.0〜1.0 の範囲にクランプ（これで枠外を指しても端に吸着する）
-        const u = Math.max(0, Math.min(1, res.x));
-        const v = Math.max(0, Math.min(1, res.y));
-
-        return {
-            yuki: Math.round(v * config.totalYuki),
-            hane: Math.round(u * config.totalHane),
-            u, v // 0.0~1.0の正規化座標
-        };
-    }, [hMatrix, config]);
-
-    const draw = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || !image || !invHMatrix) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
         const img = new Image();
         img.onload = () => {
-            // 図面の比率に合わせてCanvasのサイズを決定
-            const canvasW = 800; 
+            const canvasW = 800;
             const canvasH = Math.round(800 * (config.totalYuki / config.totalHane || 1));
-            canvas.width = canvasW;
-            canvas.height = canvasH;
-
-            // 1. 真っ暗な背景を塗る
-            ctx.fillStyle = '#222';
-            ctx.fillRect(0, 0, canvasW, canvasH);
-
-            // 2. 射影変換描画 (ピクセルマッピング)
-            // 高速化のため、実際にはImageDataを直接操作します
-            const outData = ctx.createImageData(canvasW, canvasH);
             
-            // 元画像のピクセルデータを取得するためのテンポラリキャンバス
+            const cCanvas = document.createElement('canvas');
+            cCanvas.width = canvasW;
+            cCanvas.height = canvasH;
+            const cCtx = cCanvas.getContext('2d');
+            if (!cCtx) return;
+
+            // 元画像のデータ取得
             const tCanvas = document.createElement('canvas');
             tCanvas.width = img.width;
             tCanvas.height = img.height;
@@ -78,62 +45,73 @@ export default function MeasurementStep() {
             if (!tCtx) return;
             tCtx.drawImage(img, 0, 0);
             const inData = tCtx.getImageData(0, 0, img.width, img.height).data;
+            const outData = cCtx.createImageData(canvasW, canvasH);
 
-            // 補正後のキャンバスの全ピクセルに対して、元の画像のどこを拾うべきか逆算
+            // 射影変換ループ（ここを1回だけ実行するようにする）
             for (let y = 0; y < canvasH; y++) {
                 for (let x = 0; x < canvasW; x++) {
-                    // 0~1の正規化座標に直してから逆行列を適用
                     const srcPos = transformPoint(x / canvasW, y / canvasH, invHMatrix);
-                    
                     const sx = Math.floor(srcPos.x * img.width);
                     const sy = Math.floor(srcPos.y * img.height);
-
                     if (sx >= 0 && sx < img.width && sy >= 0 && sy < img.height) {
                         const outIdx = (y * canvasW + x) * 4;
                         const inIdx = (sy * img.width + sx) * 4;
-                        outData.data[outIdx] = inData[inIdx];     // R
-                        outData.data[outIdx+1] = inData[inIdx+1]; // G
-                        outData.data[outIdx+2] = inData[inIdx+2]; // B
-                        outData.data[outIdx+3] = 255;             // A
+                        outData.data[outIdx] = inData[inIdx];
+                        outData.data[outIdx+1] = inData[inIdx+1];
+                        outData.data[outIdx+2] = inData[inIdx+2];
+                        outData.data[outIdx+3] = 255;
                     }
                 }
             }
-            ctx.putImageData(outData, 0, 0);
-
-            // 3. ガイド線とマーカーの描画 (補正後の座標系なのでシンプル！)
-            ctx.save();
-            markers.forEach((m, idx) => {
-                ctx.fillStyle = '#ffeb3b';
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(m.x * canvasW, m.y * canvasH, 6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            });
-
-            // ここでは calculateYukiHane を使わず、指の位置をそのまま Canvas のサイズにスケールします
-            if (draggingPos) {
-                const px = draggingPos.x * canvasW;
-                const py = draggingPos.y * canvasH;
-
-                ctx.strokeStyle = '#00e5ff';
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(px, 0); ctx.lineTo(px, canvasH);
-                ctx.moveTo(0, py); ctx.lineTo(canvasW, py);
-                ctx.stroke();
-
-                ctx.setLineDash([]);
-                ctx.fillStyle = '#00e5ff';
-                ctx.beginPath();
-                ctx.arc(px, py, 12, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
+            cCtx.putImageData(outData, 0, 0);
+            cacheCanvasRef.current = cCanvas; // キャッシュに保存
+            draw(); // 初回描画
         };
         img.src = image;
-    }, [image, invHMatrix, markers, draggingPos, calculateYukiHane, config]);
+    }, [image, invHMatrix, config.totalYuki, config.totalHane]);
+
+    // 設定や画像が変わったときだけキャッシュを更新
+    useEffect(() => {
+        generateCache();
+    }, [generateCache]);
+
+    // --- 2. 爆速化した描画関数 ---
+    const draw = useCallback(() => {
+        const canvas = canvasRef.current;
+        const cache = cacheCanvasRef.current;
+        if (!canvas || !cache) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        canvas.width = cache.width;
+        canvas.height = cache.height;
+
+        // キャッシュされた補正済み画像を貼り付けるだけ（爆速！）
+        ctx.drawImage(cache, 0, 0);
+
+        // マーカーとガイドの描画
+        ctx.save();
+        markers.forEach(m => {
+            ctx.fillStyle = '#ffff00';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(m.x * canvas.width, m.y * canvas.height, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        if (draggingPos) {
+            const px = draggingPos.x * canvas.width;
+            const py = draggingPos.y * canvas.height;
+            ctx.strokeStyle = '#00e5ff';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height);
+            ctx.moveTo(0, py); ctx.lineTo(canvas.width, py);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }, [markers, draggingPos]);
 
     useEffect(() => { draw(); }, [draw]);
 
