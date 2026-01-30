@@ -14,6 +14,8 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
     const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 });
+    const [isZoomMode, setIsZoomMode] = useState(false); // モード切替
+    const [lastTouch, setLastTouch] = useState<{ x: number, y: number } | null>(null); // 移動計算用
 
     // --- 1. 座標計算の基準となる「赤枠の比率」を算出 ---
     const rectRatio = useMemo(() => {
@@ -122,53 +124,66 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // 1. ブラウザ上のタッチ位置を、Canvasの表示サイズに対する 0~1 の比率に変換
+        // 1. 画面上のタッチ比率 (0~1)
         const touchRelX = (clientX - rect.left) / rect.width;
         const touchRelY = (clientY - rect.top) / rect.height;
 
-        // 2. ズーム倍率と移動量を逆算して、拡大前の「論理的なCanvas内座標」に戻す
-        // ※ zoom = { scale: number, x: number, y: number } という state を想定
-        // zoom.x, zoom.y はピクセル単位の移動量なので、Canvasの解像度で補正します
+        // 2. ズームと移動量を逆算して論理座標に戻す
         const unzoomedX = (touchRelX * canvas.width - zoom.x) / zoom.scale;
         const unzoomedY = (touchRelY * canvas.height - zoom.y) / zoom.scale;
 
-        // 3. アスペクト比の計算（ここは既存ロジックを維持）
-        const containerRatio = rect.width / rect.height; // 表示枠の比率
-        const contentRatio = cache.width / cache.height; // 補正画像の比率
+        const containerRatio = rect.width / rect.height;
+        const contentRatio = cache.width / cache.height;
 
         let x, y;
-
-        // 4. 「拡大前の座標」に対して、黒い余白（Letterbox）を差し引く
         if (containerRatio > contentRatio) {
-            // 左右に余白がある場合
-            const displayWidth = canvas.height * contentRatio; 
+            const displayWidth = canvas.height * contentRatio;
             const offsetX = (canvas.width - displayWidth) / 2;
             x = (unzoomedX - offsetX) / displayWidth;
             y = unzoomedY / canvas.height;
         } else {
-            // 上下に余白がある場合（今回の portrait で多いケース）
             const displayHeight = canvas.width / contentRatio;
             const offsetY = (canvas.height - displayHeight) / 2;
             x = unzoomedX / canvas.width;
             y = (unzoomedY - offsetY) / displayHeight;
         }
 
-        return {
-            x: Math.max(0, Math.min(1, x)),
-            y: Math.max(0, Math.min(1, y))
-        };
+        return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
     };
 
-    const handleStart = (e: any) => setDraggingPos(getPos(e));
-    const handleMove = (e: any) => draggingPos && setDraggingPos(getPos(e));
+    const handleStart = (e: any) => {
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        if (isZoomMode) {
+            setLastTouch({ x: clientX, y: clientY });
+        } else {
+            setDraggingPos(getPos(e));
+        }
+    };
 
-    // handleEnd (指を離した時) に初めて「元の歪んだ画像」のどこだったのかを逆算して往・羽を出す
+    const handleMove = (e: any) => {
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        if (isZoomMode && lastTouch) {
+            // 移動量の計算
+            const dx = clientX - lastTouch.x;
+            const dy = clientY - lastTouch.y;
+            setZoom(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+            setLastTouch({ x: clientX, y: clientY });
+        } else if (draggingPos) {
+            setDraggingPos(getPos(e));
+        }
+    };
+
     const handleEnd = () => {
-        if (draggingPos && invHMatrix) {
-            // 表示されている補正後座標 (0~1) から、実際の「往・羽」を計算
-            const u = Math.max(0, Math.min(1, draggingPos.x));
-            const v = Math.max(0, Math.min(1, draggingPos.y));
-
+        if (isZoomMode) {
+            setLastTouch(null);
+        } else if (draggingPos) {
+            // 既存のマーカー追加ロジック
+            const u = draggingPos.x;
+            const v = draggingPos.y;
             setMarkers([...markers, { 
                 yuki: Math.round(v * config.totalYuki), 
                 hane: Math.round(u * config.totalHane), 
@@ -226,6 +241,21 @@ const { image, points, config, setConfig, setStep, isPortrait } = useKasuriConte
                             cursor: 'crosshair' 
                         }}
                     />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                        <Button 
+                            variant={isZoomMode ? "contained" : "outlined"} 
+                            onClick={() => setIsZoomMode(!isZoomMode)}
+                            color="secondary"
+                        >
+                            {isZoomMode ? "移動中（図面を動かせます）" : "計測中（タップで打点）"}
+                        </Button>
+                        <Typography>拡大:</Typography>
+                        <input 
+                            type="range" min="1" max="5" step="0.1" 
+                            value={zoom.scale} 
+                            onChange={(e) => setZoom(prev => ({ ...prev, scale: parseFloat(e.target.value) }))} 
+                        />
+                    </Box>
                 </Box>
             </Box>
 
