@@ -75,6 +75,7 @@ export default function MeasurementStep() {
 
     useEffect(() => { generateCache(); }, [generateCache]);
 
+    // --- 3. 描画関数（黒い余白をCanvas内で制御する） ---
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         const cache = cacheCanvasRef.current;
@@ -82,29 +83,47 @@ export default function MeasurementStep() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        canvas.width = cache.width;
-        canvas.height = cache.height;
+        // Canvasの解像度をコンテナの表示サイズに合わせる（ボケ防止）
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
 
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
-        ctx.translate(zoom.x, zoom.y);
-        ctx.scale(zoom.scale, zoom.scale);
+
+        // 1. 画像をCanvasに収めるためのベース倍率と中央寄せ（黒い余白の計算）
+        const scaleFit = Math.min(canvas.width / cache.width, canvas.height / cache.height);
+        const offsetX = (canvas.width - cache.width * scaleFit) / 2;
+        const offsetY = (canvas.height - cache.height * scaleFit) / 2;
+
+        // 2. ズーム・移動の適用
+        // 移動量は拡大率に合わせてスケーリングして、直感的な操作感に
+        ctx.translate(offsetX + zoom.x, offsetY + zoom.y);
+        ctx.scale(scaleFit * zoom.scale, scaleFit * zoom.scale);
+
         ctx.drawImage(cache, 0, 0);
 
+        // マーカー描画
         markers.forEach(m => {
+            // 画面上の見た目を「半径3px」くらいに固定
+            const r = 3 / (scaleFit * zoom.scale); 
             ctx.fillStyle = '#ffff00';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1 / (scaleFit * zoom.scale);
+            
             ctx.beginPath();
-            ctx.arc(m.x * cache.width, m.y * cache.height, 3 / zoom.scale, 0, Math.PI * 2);
+            ctx.arc(m.x * cache.width, m.y * cache.height, r, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
 
+        // 十字線ガイド
         if (draggingPos) {
             const px = draggingPos.x * cache.width;
             const py = draggingPos.y * cache.height;
             ctx.strokeStyle = '#00e5ff';
-            ctx.lineWidth = 1 / zoom.scale;
-            ctx.setLineDash([5 / zoom.scale, 5 / zoom.scale]);
+            ctx.lineWidth = 1 / (scaleFit * zoom.scale);
+            ctx.setLineDash([5 / (scaleFit * zoom.scale), 5 / (scaleFit * zoom.scale)]);
             ctx.beginPath();
             ctx.moveTo(px, 0); ctx.lineTo(px, cache.height);
             ctx.moveTo(0, py); ctx.lineTo(cache.width, py);
@@ -115,6 +134,7 @@ export default function MeasurementStep() {
 
     useEffect(() => { draw(); }, [draw]);
 
+    // --- 4. 座標取得（黒い余白とズームを逆算） ---
     const getPos = (e: any) => {
         const canvas = canvasRef.current;
         const cache = cacheCanvasRef.current;
@@ -124,33 +144,23 @@ export default function MeasurementStep() {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        const relX = clientX - rect.left;
-        const relY = clientY - rect.top;
+        // Canvas内の相対位置
+        const mouseX = clientX - rect.left;
+        const mouseY = clientY - rect.top;
 
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const unzoomedX = (relX * scaleX - zoom.x) / zoom.scale;
-        const unzoomedY = (relY * scaleY - zoom.y) / zoom.scale;
+        // drawと同じ「ベースの余白」を計算
+        const scaleFit = Math.min(rect.width / cache.width, rect.height / cache.height);
+        const offsetX = (rect.width - cache.width * scaleFit) / 2;
+        const offsetY = (rect.height - cache.height * scaleFit) / 2;
 
-        const containerRatio = canvas.width / canvas.height;
-        const contentRatio = cache.width / cache.height;
+        // ズームと移動を逆算して、画像上のピクセル座標を出す
+        const imgPxX = (mouseX - offsetX - zoom.x) / (scaleFit * zoom.scale);
+        const imgPxY = (mouseY - offsetY - zoom.y) / (scaleFit * zoom.scale);
 
-        let x, y;
-        if (containerRatio > contentRatio) {
-            const displayWidth = canvas.height * contentRatio;
-            const offsetX = (canvas.width - displayWidth) / 2;
-            x = (unzoomedX - offsetX) / displayWidth;
-            y = unzoomedY / canvas.height;
-        } else {
-            const displayHeight = canvas.width / contentRatio;
-            const offsetY = (canvas.height - displayHeight) / 2;
-            x = unzoomedX / canvas.width;
-            y = (unzoomedY - offsetY) / displayHeight;
-        }
-
+        // 0.0 ~ 1.0 の範囲に正規化
         return {
-            x: Math.max(0, Math.min(1, x)),
-            y: Math.max(0, Math.min(1, y))
+            x: Math.max(0, Math.min(1, imgPxX / cache.width)),
+            y: Math.max(0, Math.min(1, imgPxY / cache.height))
         };
     };
 
@@ -281,9 +291,17 @@ export default function MeasurementStep() {
                 <Box sx={{ flexGrow: 1, bgcolor: '#222', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
                     <canvas
                         ref={canvasRef}
-                        onMouseDown={handleStart} onMouseUp={handleEnd}
-                        onTouchStart={handleStart} onTouchEnd={handleEnd}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', touchAction: 'none', cursor: mode === 'pan' ? 'grab' : 'crosshair' }}
+                        onMouseDown={handleStart} 
+                        onMouseUp={handleEnd}
+                        onTouchStart={handleStart} 
+                        onTouchEnd={handleEnd}
+                        style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            touchAction: 'none', 
+                            cursor: mode === 'pan' ? 'grab' : 'crosshair',
+                            display: 'block' // 余計な隙間を消す
+                        }}
                     />
                 </Box>
             </Box>
