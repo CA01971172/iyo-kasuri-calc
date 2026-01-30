@@ -5,31 +5,36 @@ import { useKasuriContext } from '../contexts/KasuriProvider';
 import { getHomographyMatrix, transformPoint } from '../utils/homography';
 
 export default function MeasurementStep() {
-    const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
+const { image, points, config, setConfig, setStep, isPortrait } = useKasuriContext();
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null); // キャッシュ用
+    const cacheCanvasRef = useRef<HTMLCanvasElement | null>(null);
     
     const [markers, setMarkers] = useState<{ yuki: number, hane: number, x: number, y: number }[]>([]);
     const [draggingPos, setDraggingPos] = useState<{ x: number, y: number } | null>(null);
 
-    // --- 1. 射影変換行列の計算 ---
-    // 逆行列（描画用）：単位正方形から元の画像の座標へ
-    const invHMatrix = useMemo(() => {
-        const dst = [
-            { x: 0, y: 0 }, { x: 1, y: 0 }, 
-            { x: 1, y: 1 }, { x: 0, y: 1 }
-        ];
-        return getHomographyMatrix(dst, points);
+    // --- 1. 座標計算の基準となる「赤枠の比率」を算出 ---
+    const rectRatio = useMemo(() => {
+        // Step 2 で決めた4点の相対座標から、歪み補正後の論理的な比率を出す
+        const topW = Math.sqrt(Math.pow(points[1].x - points[0].x, 2) + Math.pow(points[1].y - points[0].y, 2));
+        const bottomW = Math.sqrt(Math.pow(points[2].x - points[3].x, 2) + Math.pow(points[2].y - points[3].y, 2));
+        const leftH = Math.sqrt(Math.pow(points[3].x - points[0].x, 2) + Math.pow(points[3].y - points[0].y, 2));
+        const rightH = Math.sqrt(Math.pow(points[2].x - points[1].x, 2) + Math.pow(points[2].y - points[1].y, 2));
+        return ((topW + bottomW) / 2) / ((leftH + rightH) / 2);
     }, [points]);
 
-    // --- 1. 画像補正キャッシュの生成 ---
+    const invHMatrix = useMemo(() => {
+        const dst = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+        return getHomographyMatrix(dst, points); //
+    }, [points]);
+
+    // --- 2. キャッシュ生成（常に rectRatio に基づく） ---
     const generateCache = useCallback(() => {
         if (!image || !invHMatrix) return;
         
         const img = new Image();
         img.onload = () => {
             const canvasW = 800;
-            const canvasH = Math.round(800 * (config.totalYuki / config.totalHane || 1));
+            const canvasH = Math.round(800 / rectRatio); // config 依存をやめて rectRatio を基準にする
             
             const cCanvas = document.createElement('canvas');
             cCanvas.width = canvasW;
@@ -37,7 +42,6 @@ export default function MeasurementStep() {
             const cCtx = cCanvas.getContext('2d');
             if (!cCtx) return;
 
-            // 元画像のデータ取得
             const tCanvas = document.createElement('canvas');
             tCanvas.width = img.width;
             tCanvas.height = img.height;
@@ -47,10 +51,9 @@ export default function MeasurementStep() {
             const inData = tCtx.getImageData(0, 0, img.width, img.height).data;
             const outData = cCtx.createImageData(canvasW, canvasH);
 
-            // 射影変換ループ（ここを1回だけ実行するようにする）
             for (let y = 0; y < canvasH; y++) {
                 for (let x = 0; x < canvasW; x++) {
-                    const srcPos = transformPoint(x / canvasW, y / canvasH, invHMatrix);
+                    const srcPos = transformPoint(x / canvasW, y / canvasH, invHMatrix); //
                     const sx = Math.floor(srcPos.x * img.width);
                     const sy = Math.floor(srcPos.y * img.height);
                     if (sx >= 0 && sx < img.width && sy >= 0 && sy < img.height) {
@@ -64,16 +67,13 @@ export default function MeasurementStep() {
                 }
             }
             cCtx.putImageData(outData, 0, 0);
-            cacheCanvasRef.current = cCanvas; // キャッシュに保存
-            draw(); // 初回描画
+            cacheCanvasRef.current = cCanvas;
+            draw();
         };
         img.src = image;
-    }, [image, invHMatrix, config.totalYuki, config.totalHane]);
+    }, [image, invHMatrix, rectRatio]); // config を除外して安定させる
 
-    // 設定や画像が変わったときだけキャッシュを更新
-    useEffect(() => {
-        generateCache();
-    }, [generateCache]);
+    useEffect(() => { generateCache(); }, [generateCache]);
 
     // --- 2. 爆速化した描画関数 ---
     const draw = useCallback(() => {
@@ -115,18 +115,38 @@ export default function MeasurementStep() {
 
     useEffect(() => { draw(); }, [draw]);
 
-    // Canvas上の物理的な座標を 0~1 に変換
+    // --- 3. 座標取得（キャッシュの比率と完全に一致させる） ---
     const getPos = (e: any) => {
         const canvas = canvasRef.current;
-        if (!canvas) return { x: 0, y: 0 };
+        const cache = cacheCanvasRef.current;
+        if (!canvas || !cache) return { x: 0, y: 0 };
+
         const rect = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        // Canvasの表示領域内での相対位置 (0.0 ~ 1.0)
+
+        const containerRatio = rect.width / rect.height;
+        const contentRatio = cache.width / cache.height;
+
+        let x, y;
+        const relX = clientX - rect.left;
+        const relY = clientY - rect.top;
+
+        if (containerRatio > contentRatio) {
+            const displayWidth = rect.height * contentRatio;
+            const offsetX = (rect.width - displayWidth) / 2;
+            x = (relX - offsetX) / displayWidth;
+            y = relY / rect.height;
+        } else {
+            const displayHeight = rect.width / contentRatio;
+            const offsetY = (rect.height - displayHeight) / 2;
+            x = relX / rect.width;
+            y = (relY - offsetY) / displayHeight;
+        }
+
         return {
-            x: (clientX - rect.left) / rect.width,
-            y: (clientY - rect.top) / rect.height
+            x: Math.max(0, Math.min(1, x)),
+            y: Math.max(0, Math.min(1, y))
         };
     };
 
