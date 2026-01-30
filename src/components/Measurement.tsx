@@ -288,7 +288,17 @@ export default function MeasurementStep() {
                     <Button size="small" onClick={() => setZoom({ scale: 1, x: 0, y: 0 })}>リセット</Button>
                 </Box>
 
-                <Box sx={{ flexGrow: 1, bgcolor: '#222', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                <Box sx={{ 
+                    flexGrow: 1, 
+                    bgcolor: '#222', 
+                    borderRadius: '12px', 
+                    overflow: 'hidden', 
+                    display: 'flex', 
+                    position: 'relative',
+                    // モードによって枠線の色を変える（計測は赤、移動は青など）
+                    border: `4px solid ${mode === 'measure' ? '#ff4444' : '#4488ff'}`,
+                    transition: 'border-color 0.2s'
+                }}>
                     <canvas
                         ref={canvasRef}
                         onMouseDown={handleStart} 
@@ -303,6 +313,15 @@ export default function MeasurementStep() {
                             display: 'block' // 余計な隙間を消す
                         }}
                     />
+                    <Button 
+                        variant="contained" 
+                        color="inherit"
+                        onClick={() => setMarkers(prev => prev.slice(0, -1))}
+                        disabled={markers.length === 0}
+                        sx={{ position: 'absolute', top: 10, right: 10, minWidth: '80px', fontWeight: 'bold' }}
+                    >
+                        一つ戻る
+                    </Button>
                 </Box>
             </Box>
 
