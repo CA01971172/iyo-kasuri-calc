@@ -121,13 +121,21 @@ export default function MeasurementStep() {
         if (draggingPos) {
             const px = draggingPos.x * cache.width;
             const py = draggingPos.y * cache.height;
-            ctx.strokeStyle = '#00e5ff';
+            
+            // 枠線の色 (mode が measure なら赤) と合わせる
+            ctx.strokeStyle = mode === 'measure' ? '#ff4444' : '#4488ff'; 
             ctx.lineWidth = 1 / (scaleFit * zoom.scale);
+            
+            // 少し透けさせると、下の画像（絣の糸）が見やすくなって親切です
+            ctx.globalAlpha = 0.7; 
             ctx.setLineDash([5 / (scaleFit * zoom.scale), 5 / (scaleFit * zoom.scale)]);
+            
             ctx.beginPath();
             ctx.moveTo(px, 0); ctx.lineTo(px, cache.height);
             ctx.moveTo(0, py); ctx.lineTo(cache.width, py);
             ctx.stroke();
+            
+            ctx.globalAlpha = 1.0; // 元に戻す
         }
         ctx.restore();
     }, [markers, draggingPos, zoom]);
