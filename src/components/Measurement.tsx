@@ -232,6 +232,7 @@ export default function MeasurementStep() {
             const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
             const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
+            // 指が動いている間は常にルーペを表示
             // ★追加：ルーペ用の座標を常に計算してセット
             const currentPos = getPos(e);
             setMagnifierPos(currentPos); // これで 0.0〜1.0 の比率座標が渡る
@@ -264,16 +265,20 @@ export default function MeasurementStep() {
             setMagnifierPos(null); // ★追加：指を離したらルーペを消す
         };
 
+        // window 全体で監視することで、Canvasの外で離しても反応するようにする
         window.addEventListener('mousemove', handleGlobalMove);
         window.addEventListener('touchmove', handleGlobalMove, { passive: false });
         window.addEventListener('mouseup', handleGlobalUp);
         window.addEventListener('touchend', handleGlobalUp);
+        // マウスがブラウザの外に出た時も消す
+        window.addEventListener('mouseleave', handleGlobalUp);
 
         return () => {
             window.removeEventListener('mousemove', handleGlobalMove);
             window.removeEventListener('touchmove', handleGlobalMove);
             window.removeEventListener('mouseup', handleGlobalUp);
             window.removeEventListener('touchend', handleGlobalUp);
+            window.removeEventListener('mouseleave', handleGlobalUp);
         };
         // 依存配列に zoom.x と zoom.y も追加しておくと座標計算が正確になります
     }, [mode, lastTouch, draggingPos, zoom.scale, zoom.x, zoom.y]);
