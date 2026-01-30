@@ -112,18 +112,23 @@ export default function MeasurementStep() {
                 ctx.stroke();
             });
 
+            // ここでは calculateYukiHane を使わず、指の位置をそのまま Canvas のサイズにスケールします
             if (draggingPos) {
-                const res = calculateYukiHane(draggingPos.x, draggingPos.y);
-                if (res) {
-                    const px = res.u * canvasW;
-                    const py = res.v * canvasH;
-                    ctx.strokeStyle = '#00e5ff';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(px, 0); ctx.lineTo(px, canvasH);
-                    ctx.moveTo(0, py); ctx.lineTo(canvasW, py);
-                    ctx.stroke();
-                }
+                const px = draggingPos.x * canvasW;
+                const py = draggingPos.y * canvasH;
+
+                ctx.strokeStyle = '#00e5ff';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(px, 0); ctx.lineTo(px, canvasH);
+                ctx.moveTo(0, py); ctx.lineTo(canvasW, py);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#00e5ff';
+                ctx.beginPath();
+                ctx.arc(px, py, 12, 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         };
@@ -132,13 +137,15 @@ export default function MeasurementStep() {
 
     useEffect(() => { draw(); }, [draw]);
 
-    // Canvas上の座標を 0~1 に変換
+    // Canvas上の物理的な座標を 0~1 に変換
     const getPos = (e: any) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
         const rect = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        // Canvasの表示領域内での相対位置 (0.0 ~ 1.0)
         return {
             x: (clientX - rect.left) / rect.width,
             y: (clientY - rect.top) / rect.height
@@ -147,17 +154,20 @@ export default function MeasurementStep() {
 
     const handleStart = (e: any) => setDraggingPos(getPos(e));
     const handleMove = (e: any) => draggingPos && setDraggingPos(getPos(e));
+
+    // handleEnd (指を離した時) に初めて「元の歪んだ画像」のどこだったのかを逆算して往・羽を出す
     const handleEnd = () => {
-        if (draggingPos) {
-            const res = calculateYukiHane(draggingPos.x, draggingPos.y);
-            if (res) {
-                setMarkers([...markers, { 
-                    yuki: res.yuki, 
-                    hane: res.hane, 
-                    x: res.u, 
-                    y: res.v 
-                }]);
-            }
+        if (draggingPos && invHMatrix) {
+            // 表示されている補正後座標 (0~1) から、実際の「往・羽」を計算
+            const u = Math.max(0, Math.min(1, draggingPos.x));
+            const v = Math.max(0, Math.min(1, draggingPos.y));
+
+            setMarkers([...markers, { 
+                yuki: Math.round(v * config.totalYuki), 
+                hane: Math.round(u * config.totalHane), 
+                x: u, 
+                y: v 
+            }]);
             setDraggingPos(null);
         }
     };
