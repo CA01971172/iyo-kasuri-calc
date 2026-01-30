@@ -203,6 +203,19 @@ export default function PhotoUploader() {
                     >
                         写真を撮り直す
                     </Button>
+                    <Button
+                        fullWidth
+                        variant="text" // 他のボタンより少し控えめにして、間違えて押さないようにします
+                        component="label"
+                        sx={{ 
+                            fontSize: '0.9rem', 
+                            color: 'text.secondary',
+                            textDecoration: 'underline'
+                        }}
+                    >
+                        データを読み込む(続きから再開)
+                        <input type="file" accept=".json" hidden onChange={handleImport} />
+                    </Button>
                 </Box>
             )}
 
