@@ -228,15 +228,13 @@ export default function MeasurementStep() {
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
             const canvas = canvasRef.current;
             if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            
+
             const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
             const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
             // ★追加：ルーペ用の座標を常に計算してセット
-            const x = (clientX - rect.left - zoom.x) / zoom.scale;
-            const y = (clientY - rect.top - zoom.y) / zoom.scale;
-            setMagnifierPos({ x, y });
+            const currentPos = getPos(e);
+            setMagnifierPos(currentPos); // これで 0.0〜1.0 の比率座標が渡る
 
             if (mode === 'pan' && lastTouch) {
                 const dx = clientX - lastTouch.x;
@@ -256,7 +254,7 @@ export default function MeasurementStep() {
                 setLastTouch({ x: clientX, y: clientY });
             } 
             else if (draggingPos) {
-                setDraggingPos(getPos(e));
+                setDraggingPos(currentPos);
             }
         };
 
@@ -400,42 +398,44 @@ export default function MeasurementStep() {
                 </Box>
             </Box>
 
-            {magnifierPos && image && mode === 'measure' && (
+            {magnifierPos && mode === 'measure' && (
                 <Paper
                     elevation={10}
                     sx={{
                         position: 'absolute',
                         top: 20,
                         left: isPortrait ? 20 : 'auto', 
-                        right: isPortrait ? 'auto' : 20, // 縦持ちなら左上、横持ちなら右上に
+                        right: isPortrait ? 'auto' : 20,
                         width: 160,
                         height: 160,
                         overflow: 'hidden',
                         borderRadius: '50%',
                         border: '4px solid #fff',
                         zIndex: 1000,
-                        pointerEvents: 'none', // ルーペが触れないようにして操作を邪魔しない
+                        pointerEvents: 'none',
                     }}
                 >
                     <canvas
                         ref={(el) => {
-                            if (!el || !image) return;
+                            if (!el || !cacheCanvasRef.current) return;
                             const ctx = el.getContext('2d');
+                            const cacheCanvas = cacheCanvasRef.current;
                             if (!ctx) return;
+
                             const size = 160;
-                            const mag = 3; // 3倍拡大
+                            const mag = 1.5; // 一旦1.5倍くらいにしてみます
                             el.width = size;
                             el.height = size;
-                            
-                            const img = new Image();
-                            img.src = image;
-                            // 元画像から切り取る範囲
+
+                            // 補正後画像（cacheCanvas）上でのピクセル座標を計算
+                            const sourceX = magnifierPos.x * cacheCanvas.width;
+                            const sourceY = magnifierPos.y * cacheCanvas.height;
                             const sourceSize = size / mag;
-                            
+
                             ctx.drawImage(
-                                img,
-                                magnifierPos.x - sourceSize / 2,
-                                magnifierPos.y - sourceSize / 2,
+                                cacheCanvas, // 生画像ではなく補正済みCanvasを使う！
+                                sourceX - sourceSize / 2,
+                                sourceY - sourceSize / 2,
                                 sourceSize,
                                 sourceSize,
                                 0, 0, size, size
