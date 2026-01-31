@@ -118,7 +118,7 @@ export default function PhotoUploader() {
 
                 {!image ? (
                     <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4, color='black' }}>
                             図面を撮影してください
                         </Typography>
                         <Button
