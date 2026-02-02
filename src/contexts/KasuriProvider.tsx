@@ -17,7 +17,14 @@ export type KasuriConfig = {
 };
 
 // マーカーの型
-export type Marker = { yuki: number, hane: number, x: number, y: number };
+export type Marker = {
+    yuki: number,
+    hane: number,
+    x: number,
+    y: number,
+    ratioX: number, // 画像幅に対する比率 (0.0 〜 1.0)
+    ratioY: number, // 画像高さに対する比率 (0.0 〜 1.0)
+};
 
 // Contextが保持する全データの型
 type KasuriContextType = {
@@ -28,7 +35,7 @@ type KasuriContextType = {
     points: Point[];
     setPoints: (points: Point[]) => void;
     config: KasuriConfig;
-    setConfig: (config: KasuriConfig) => void;
+    setConfig: React.Dispatch<React.SetStateAction<KasuriConfig>>
     isPortrait: boolean;
     markers: Marker[];
     setMarkers: React.Dispatch<React.SetStateAction<Marker[]>>;

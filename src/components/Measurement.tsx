@@ -292,9 +292,15 @@ export default function MeasurementStep() {
             setLastTouch(null);
         } else if (draggingPos) {
             setMarkers([...markers, { 
+                // 表示用の値（現在の設定で計算）
                 yuki: Math.round(draggingPos.y * config.totalYuki), 
                 hane: Math.round(draggingPos.x * config.totalHane), 
-                x: draggingPos.x, y: draggingPos.y 
+                // 描画用の座標
+                x: draggingPos.x, 
+                y: draggingPos.y,
+                // 再計算用の「比率」生データ
+                ratioX: draggingPos.x,
+                ratioY: draggingPos.y
             }]);
             setDraggingPos(null);
         }
@@ -356,6 +362,16 @@ export default function MeasurementStep() {
     const handlePdfExport = () => {
         if (!image) return;
         exportToPdf(image, markers, config);
+    };
+
+    // 行・羽の更新用の関数
+    const updateMarkersConfig = (newYuki: number, newHane: number) => {
+        setMarkers(prev => prev.map(m => ({
+            ...m,
+            // 保存しておいた比率を使って、新しい設定値で計算し直す
+            yuki: Math.round((m.ratioY) * newYuki),
+            hane: Math.round((m.ratioX) * newHane)
+        })));
     };
 
     return (
@@ -514,7 +530,11 @@ export default function MeasurementStep() {
                             type="number"
                             size="small"
                             value={config.totalYuki}
-                            onChange={(e) => setConfig({ ...config, totalYuki: Number(e.target.value) })}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setConfig(prev => ({ ...prev, totalYuki: val }));
+                                updateMarkersConfig(val, config.totalHane); // 最新の往と現在の羽で更新
+                            }}
                             sx={{ width: '80px', bgcolor: 'white' }}
                         />
                         <Typography variant="body2">行</Typography>
@@ -523,7 +543,11 @@ export default function MeasurementStep() {
                             type="number"
                             size="small"
                             value={config.totalHane}
-                            onChange={(e) => setConfig({ ...config, totalHane: Number(e.target.value) })}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setConfig(prev => ({ ...prev, totalHane: val }));
+                                updateMarkersConfig(config.totalYuki, val); // 最新の往と現在の羽で更新
+                            }}
                             sx={{ width: '80px', bgcolor: 'white' }}
                         />
                         <Typography variant="body2">羽</Typography>
