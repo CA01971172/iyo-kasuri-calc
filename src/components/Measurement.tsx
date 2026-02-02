@@ -226,22 +226,26 @@ export default function MeasurementStep() {
 
     useEffect(() => {
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-
-            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-
-            // 指が動いている間は常にルーペを表示
-            // ★追加：ルーペ用の座標を常に計算してセット
             const currentPos = getPos(e);
-            setMagnifierPos(currentPos); // これで 0.0〜1.0 の比率座標が渡る
+
+            // ★修正：操作中（lastTouch または draggingPos がある時）だけルーペを出す
+            if (lastTouch || draggingPos) {
+                setMagnifierPos(currentPos);
+            } else {
+                // 何もしていない時はルーペを消す
+                setMagnifierPos(null);
+            }
 
             if (mode === 'pan' && lastTouch) {
+                const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+                const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+                
                 const dx = clientX - lastTouch.x;
                 const dy = clientY - lastTouch.y;
 
                 setZoom(prev => {
+                    const canvas = canvasRef.current;
+                    if (!canvas) return prev;
                     const newX = prev.x + dx;
                     const newY = prev.y + dy;
                     const limitX = canvas.width / 2;
