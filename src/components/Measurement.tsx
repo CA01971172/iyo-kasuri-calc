@@ -176,25 +176,12 @@ export default function MeasurementStep() {
 
     // --- ★追加：中心点固定ズーム ---
     const handleZoomChange = (newScale: number) => {
-        setZoom(prev => {
-            const canvas = canvasRef.current;
-            const cache = cacheCanvasRef.current;
-            if (!canvas || !cache) return { ...prev, scale: newScale };
-
-            // ズーム倍率に合わせて移動量も比例させる
-            const newX = (prev.x / prev.scale) * newScale;
-            const newY = (prev.y / prev.scale) * newScale;
-
-            const scaleFit = Math.min(canvas.width / cache.width, canvas.height / cache.height);
-            const totalSlackX = Math.max(0, cache.width * scaleFit * newScale - canvas.width);
-            const totalSlackY = Math.max(0, cache.height * scaleFit * newScale - canvas.height);
-
-            return {
-                scale: newScale,
-                x: Math.max(-totalSlackX, Math.min(0, newX)),
-                y: Math.max(-totalSlackY, Math.min(0, newY))
-            };
-        });
+        setZoom(prev => ({
+            scale: newScale,
+            // scaleが1なら位置を0,0(中央)に戻す。それ以外なら現在の位置を維持。
+            x: newScale <= 1 ? 0 : prev.x,
+            y: newScale <= 1 ? 0 : prev.y
+        }));
     };
 
     const handleStart = (e: any) => {
@@ -237,36 +224,13 @@ export default function MeasurementStep() {
                 const dy = clientY - lastTouch.y;
 
                 setZoom(prev => {
-                    const canvas = canvasRef.current;
-                    const cache = cacheCanvasRef.current;
-                    if (!canvas || !cache) return prev;
-
-                    const nextX = prev.x + dx;
-                    const nextY = prev.y + dy;
-
-                    // 1. 画像の表示サイズを計算
-                    const scaleFit = Math.min(canvas.width / cache.width, canvas.height / cache.height);
-                    const zoomedWidth = cache.width * scaleFit * prev.scale;
-                    const zoomedHeight = cache.height * scaleFit * prev.scale;
-
-                    // 2. マスターの発見に基づいた「右をピッタリにする」ための全可動域
-                    const totalSlackX = Math.max(0, zoomedWidth - canvas.width);
-                    const totalSlackY = Math.max(0, zoomedHeight - canvas.height);
-
-                    // 3. 右に半分ずれている現状に合わせて、制限の「枠」を右にずらす
-                    // 左端の限界を 0、右端の限界を totalSlackX (2倍分) に設定
-                    // これで左の過剰スライドが止まり、右が届くようになります
-                    const minX = -totalSlackX; // 左側の壁
-                    const maxX = 0;           // 右側の壁（ここを0にすることで右不足を解消）
-                    
-                    // Y軸も同様の傾向があれば合わせます
-                    const minY = -totalSlackY;
-                    const maxY = 0;
+                    // 拡大していない(scale=1)時は動かさない、拡大時だけ自由に動かす
+                    if (prev.scale <= 1) return { ...prev, x: 0, y: 0 };
 
                     return {
                         ...prev,
-                        x: prev.scale <= 1 ? 0 : Math.max(minX, Math.min(maxX, nextX)),
-                        y: prev.scale <= 1 ? 0 : Math.max(minY, Math.min(maxY, nextY))
+                        x: prev.x + dx,
+                        y: prev.y + dy
                     };
                 });
                 setLastTouch({ x: clientX, y: clientY });
