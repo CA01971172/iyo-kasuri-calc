@@ -439,7 +439,9 @@ export default function MeasurementStep() {
                             if (!ctx) return;
 
                             const size = 160;
-                            const mag = 1.5; // 一旦1.5倍くらいにしてみます
+                            // 全体のズーム倍率に連動させる
+                            // zoom.scaleが1の時は1.5倍、ズームするほどさらに拡大される
+                            const mag = zoom.scale * 1.5;
                             el.width = size;
                             el.height = size;
 
