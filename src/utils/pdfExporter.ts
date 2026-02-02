@@ -24,7 +24,8 @@ export const exportToPdf = async (
 
     try {
         // 1. ローカル（public/fonts/）からフォントを読み込む
-        const fontBase64 = await loadLocalFont('/fonts/NotoSansJP-Regular.ttf');
+        // /fonts/... ではなく fonts/... (相対パス) にすることで GitHub Pages でも読み込めるように
+        const fontBase64 = await loadLocalFont('fonts/NotoSansJP-Regular.ttf');
         
         // 2. jsPDFに登録
         doc.addFileToVFS('NotoSansJP.ttf', fontBase64);
