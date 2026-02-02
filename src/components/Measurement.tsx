@@ -268,16 +268,21 @@ export default function MeasurementStep() {
         if (mode === 'pan') {
             setLastTouch(null);
         } else if (draggingPos) {
+            // 右下原点にするための計算：
+            // 1.0 (最大値) から現在の比率を引くことで、右/下からの距離にする
+            const invertedX = 1 - draggingPos.x; // 右からの比率
+            const invertedY = 1 - draggingPos.y; // 下からの比率
+
             setMarkers([...markers, { 
-                // 表示用の値（現在の設定で計算）
-                yuki: Math.round(draggingPos.y * config.totalYuki), 
-                hane: Math.round(draggingPos.x * config.totalHane), 
-                // 描画用の座標
+                // 表示用の値（反転させた比率で計算）
+                yuki: Math.round(invertedY * config.totalYuki), 
+                hane: Math.round(invertedX * config.totalHane), 
+                // 描画用の座標（画像上の位置は変えないのでそのまま）
                 x: draggingPos.x, 
                 y: draggingPos.y,
-                // 再計算用の「比率」生データ
-                ratioX: draggingPos.x,
-                ratioY: draggingPos.y
+                // 再計算用の比率も反転後のものを保存
+                ratioX: invertedX,
+                ratioY: invertedY
             }]);
             setDraggingPos(null);
         }
@@ -345,7 +350,7 @@ export default function MeasurementStep() {
     const updateMarkersConfig = (newYuki: number, newHane: number) => {
         setMarkers(prev => prev.map(m => ({
             ...m,
-            // 保存しておいた比率を使って、新しい設定値で計算し直す
+            // 保存されている「右下からの比率」を使って新しい設定値で計算
             yuki: Math.round((m.ratioY) * newYuki),
             hane: Math.round((m.ratioX) * newHane)
         })));
