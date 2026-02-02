@@ -118,7 +118,7 @@ export default function CalibrationStep() {
             height: '100%', p: 2, gap: 2, boxSizing: 'border-box' 
         }}>
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 0, minWidth: 0 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center' }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center', color: 'black' }}>
                     図面の四隅に赤い点を合わせてください
                 </Typography>
                 

@@ -109,7 +109,8 @@ export default function PhotoUploader() {
                         sx={{ 
                             fontWeight: 'bold', 
                             mb: 2, 
-                            textAlign: 'center' 
+                            textAlign: 'center',
+                            color: 'black' 
                         }}
                     >
                         この写真で図面を測りますか？
@@ -118,7 +119,7 @@ export default function PhotoUploader() {
 
                 {!image ? (
                     <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4, color='black' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4, color: 'black' }}>
                             図面を撮影してください
                         </Typography>
                         <Button
