@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { Box, Button, Typography, Paper, Divider, List, ListItem, ListItemText, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Button, Typography, Paper, Divider, List, ListItem, ListItemText, IconButton, ToggleButton, ToggleButtonGroup, TextField } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PanToolIcon from '@mui/icons-material/PanTool'; 
 import AddLocationIcon from '@mui/icons-material/AddLocation'; 
@@ -476,7 +476,8 @@ export default function MeasurementStep() {
                 sx={{
                     width: isPortrait ? '100%' : '300px',
                     // 横向きの時は画面の高さに完全に固定する
-                    height: isPortrait ? 'auto' : 'calc(100vh - 60px)', 
+                    // 横向きの時、画面の高さから確実に100px引いて収める
+                    height: isPortrait ? 'auto' : 'calc(100vh - 100px)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 1,
@@ -505,6 +506,28 @@ export default function MeasurementStep() {
                     </Box>
 
                     <Divider />
+
+                    {/* 往・羽数の設定入力欄 */}
+                    <Box sx={{ p: 1, display: 'flex', gap: 1, alignItems: 'center', bgcolor: '#f5f5f5', borderRadius: 1, mt: 1 }}>
+                        <TextField
+                            label="行"
+                            type="number"
+                            size="small"
+                            value={config.totalYuki}
+                            onChange={(e) => setConfig({ ...config, totalYuki: Number(e.target.value) })}
+                            sx={{ width: '80px', bgcolor: 'white' }}
+                        />
+                        <Typography variant="body2">行</Typography>
+                        <TextField
+                            label="羽"
+                            type="number"
+                            size="small"
+                            value={config.totalHane}
+                            onChange={(e) => setConfig({ ...config, totalHane: Number(e.target.value) })}
+                            sx={{ width: '80px', bgcolor: 'white' }}
+                        />
+                        <Typography variant="body2">羽</Typography>
+                    </Box>
 
                     {/* リストエリア：ここが自律的にスクロールする */}
                     <Box 
