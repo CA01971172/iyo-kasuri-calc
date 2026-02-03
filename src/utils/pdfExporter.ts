@@ -42,7 +42,7 @@ export const exportToPdf = async (
     doc.text('かすり計測結果', 10, 20);
 
     doc.setFontSize(10);
-    doc.text(`総往数: ${config.totalYuki} / 総羽数: ${config.totalHane}`, 10, 30);
+    doc.text(`総行数: ${config.totalYuki} / 総羽数: ${config.totalHane}`, 10, 30);
     doc.text(`計測日: ${new Date().toLocaleDateString()}`, 10, 35);
 
     // 画像とマーカーの合成Canvas処理
@@ -86,7 +86,7 @@ export const exportToPdf = async (
     doc.setFontSize(10);
     markers.forEach((m, i) => {
         if (currentY > 280) { doc.addPage(); currentY = 20; }
-        doc.text(`${i + 1}点目: ${m.yuki} 往 / ${m.hane} 羽`, 15, currentY);
+        doc.text(`${i + 1}点目: ${m.yuki} 行 / ${m.hane} 羽`, 15, currentY);
         currentY += 6;
     });
 

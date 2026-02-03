@@ -305,7 +305,7 @@ export default function MeasurementStep() {
         const data = {
             image,      // base64画像データ
             points,     // 四隅の座標
-            config,     // 総往数・総羽数
+            config,     // 総行数・総羽数
             markers,    // 打った点
             version: "1.0"
         };
@@ -318,7 +318,7 @@ export default function MeasurementStep() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // お祖母様がうっかり今の作業を消さないための確認
+        // うっかり今の作業を消さないための確認
         if (markers.length > 0) {
             if (!window.confirm("今の計測データが消えてしまいますが、別のファイルを読み込んでもよろしいですか？")) {
                 return;
@@ -507,7 +507,7 @@ export default function MeasurementStep() {
 
                     <Divider />
 
-                    {/* 往・羽数の設定入力欄 */}
+                    {/* 行・羽数の設定入力欄 */}
                     <Box sx={{ p: 1, display: 'flex', gap: 1, alignItems: 'center', bgcolor: '#f5f5f5', borderRadius: 1, mt: 1 }}>
                         <TextField
                             label="行"
@@ -517,7 +517,7 @@ export default function MeasurementStep() {
                             onChange={(e) => {
                                 const val = Number(e.target.value);
                                 setConfig(prev => ({ ...prev, totalYuki: val }));
-                                updateMarkersConfig(val, config.totalHane); // 最新の往と現在の羽で更新
+                                updateMarkersConfig(val, config.totalHane); // 最新の行と現在の羽で更新
                             }}
                             sx={{ width: '80px', bgcolor: 'white' }}
                         />
@@ -530,7 +530,7 @@ export default function MeasurementStep() {
                             onChange={(e) => {
                                 const val = Number(e.target.value);
                                 setConfig(prev => ({ ...prev, totalHane: val }));
-                                updateMarkersConfig(config.totalYuki, val); // 最新の往と現在の羽で更新
+                                updateMarkersConfig(config.totalYuki, val); // 最新の行と現在の羽で更新
                             }}
                             sx={{ width: '80px', bgcolor: 'white' }}
                         />
@@ -560,7 +560,7 @@ export default function MeasurementStep() {
                                         </IconButton>
                                     }
                                 >
-                                    <ListItemText primary={`${i + 1}. ${m.yuki} 往 / ${m.hane} 羽`} />
+                                    <ListItemText primary={`${i + 1}. ${m.yuki} 行 / ${m.hane} 羽`} />
                                 </ListItem>
                             ))}
                         </List>
