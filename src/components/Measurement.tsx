@@ -341,9 +341,23 @@ export default function MeasurementStep() {
     };
 
     // PDF出力実行
-    const handlePdfExport = () => {
-        if (!image) return;
-        exportToPdf(image, markers, config);
+    const handlePdfExport = async () => {
+        // 補正済み画像が描画されているCanvasを取得
+        const canvas = cacheCanvasRef.current;
+        if (!canvas) {
+            alert("補正画像が見つかりません。");
+            return;
+        }
+
+        // Canvasの内容をDataURL（画像データ）に変換
+        const warpedImageDataUrl = canvas.toDataURL("image/png");
+
+        // 修正したExporterを呼び出す
+        await exportToPdf(
+            warpedImageDataUrl,
+            markers,
+            config
+        );
     };
 
     // 行・羽の更新用の関数
