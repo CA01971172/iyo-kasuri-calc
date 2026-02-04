@@ -53,8 +53,8 @@ export function KasuriProvider({ children }: { children: ReactNode }) {
     const isPortrait = useMediaQuery('(orientation: portrait)');
     const [markers, setMarkers] = useState<Marker[]>([]);
     const [config, setConfig] = useState<KasuriConfig>({
-        totalYuki: 32,       // 32行
-        totalHane: 80,       // 80羽（図面の横幅が80ユニット分）
+        totalYuki: 204,       // 204行(横糸の本数が縦に204本分)
+        totalHane: 430,       // 430羽(縦糸の本数が横に430本分)
     });
 
     const value: KasuriContextType = {
